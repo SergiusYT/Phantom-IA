@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { Busy, ICONOS, Ico, fecha, useLoad } from "./ui.jsx";
 import { ROLES, ultimaAuditoria } from "./AgentesK8s.jsx";
+import { aristaDePrueba, resumen } from "./conectividad.js";
 import { AGENTES } from "./Sala.jsx";
 import { APP_NOMBRE, APP_TECH, TechG, techColor } from "./tech.jsx";
 
@@ -43,7 +44,12 @@ function Caja({ id, x, y, w = 150, h = 54, tech, titulo, sub, color = "#1D3729",
 const TEC = { frontend: "Nginx", api: "Python", db: "PostgreSQL" };
 const PUERTO_APP = { frontend: 80, api: 8080, db: 5432 };
 
-function VistaApp({ topo, orq, sel, onSel }) {
+const AMBAR = "#FFB547";
+// resalta la conexión que se está probando ahora mismo
+const PRUEBA = { color: AMBAR, grueso: 3.6, paquete: true, dash: "" };
+
+function VistaApp({ topo, orq, sel, onSel, foco }) {
+  const pr = (id) => (foco === id ? PRUEBA : {});
   const ed = (id) => topo.edges.find((e) => e.id === id);
   const pods = (app) => (orq?.kubernetes?.pods || []).filter((p) => p.app === app && p.state !== "Terminating");
   const svcNodo = Object.fromEntries(topo.nodes.filter((n) => n.kind === "workload").map((n) => [n.id, n]));
@@ -81,11 +87,11 @@ function VistaApp({ topo, orq, sel, onSel }) {
       <text x="960" y="92" textAnchor="middle" fill="#5C7A6C" fontSize="12.5" fontFamily="Instrument Sans">Copias en ejecución</text>
 
       {/* Internet -> firewall */}
-      <Linea d={`M110,190 C140,190 150,${FY - 33} 185,${FY - 33}`} color={appOk ? VERDE : GRIS} paquete={appOk} />
-      <Linea d={`M110,200 C140,200 150,${FY - 4} 185,${FY - 4}`} color={appOk ? VERDE : GRIS} paquete={appOk} />
-      <Linea d={`M110,210 C140,210 150,${FY + 25} 185,${FY + 25}`} color={s8081.color} dash="6 5" paquete={s8081.tipo === "brecha"} />
+      <Linea d={`M110,190 C140,190 150,${FY - 33} 185,${FY - 33}`} color={appOk ? VERDE : GRIS} paquete={appOk} {...pr("inet-fw")} />
+      <Linea d={`M110,200 C140,200 150,${FY - 4} 185,${FY - 4}`} color={appOk ? VERDE : GRIS} paquete={appOk} {...pr("inet-fw")} />
+      <Linea d={`M110,210 C140,210 150,${FY + 25} 185,${FY + 25}`} color={s8081.color} dash="6 5" paquete={s8081.tipo === "brecha"} {...pr("inet-fw-8081")} />
       {/* firewall -> entrada del cluster (reenvio) */}
-      {reenvia(80) && <Linea d={`M355,${FY - 18} C385,${FY - 18} 390,200 405,200`} color={appOk ? VERDE : GRIS} paquete={appOk} etiqueta="reenvío" lx={382} ly={FY - 30} />}
+      {reenvia(80) && <Linea d={`M355,${FY - 18} C385,${FY - 18} 390,200 405,200`} color={appOk ? VERDE : GRIS} paquete={appOk} etiqueta="reenvío" lx={382} ly={FY - 30} {...pr("inet-fw")} />}
       <Linea d="M525,200 C580,200 560,170 595,170" color={appOk ? VERDE : AZUL} paquete={appOk} />
       {/* camino que se salta el firewall */}
       {dbAbierta
@@ -99,9 +105,9 @@ function VistaApp({ topo, orq, sel, onSel }) {
         return <Linea key={p.name} d={`M765,${Y[a]} C830,${Y[a]} 840,${y2} 885,${y2}`} color="#2A4A3A" grueso={1.4} paquete={p.ready} />;
       }))}
       {/* flujos entre apps */}
-      <Linea d="M1035,170 C1080,170 1080,230 1050,245 C1010,262 820,250 765,292" color={fa.color} paquete={fa.tipo === "ok"} etiqueta={`Web → API: ${fa.txt}`} lx={905} ly={246} />
-      <Linea d="M1035,300 C1080,300 1080,360 1050,375 C1010,392 820,380 765,422" color={ad.color} paquete={ad.tipo === "ok"} etiqueta={`API → Datos: ${ad.txt}`} lx={905} ly={376} />
-      <Linea d="M600,186 C568,240 568,370 600,416" color={fd.color} dash="6 5" paquete={fd.tipo === "brecha"} />
+      <Linea d="M1035,170 C1080,170 1080,230 1050,245 C1010,262 820,250 765,292" color={fa.color} paquete={fa.tipo === "ok"} etiqueta={`Web → API: ${fa.txt}`} lx={905} ly={246} {...pr("fe-api")} />
+      <Linea d="M1035,300 C1080,300 1080,360 1050,375 C1010,392 820,380 765,422" color={ad.color} paquete={ad.tipo === "ok"} etiqueta={`API → Datos: ${ad.txt}`} lx={905} ly={376} {...pr("api-db")} />
+      <Linea d="M600,186 C568,240 568,370 600,416" color={fd.color} dash="6 5" paquete={fd.tipo === "brecha"} {...pr("fe-db")} />
       <text transform="translate(570,302) rotate(-90)" textAnchor="middle" fontSize="12.5" fill={fd.color === GRIS ? "#8FB3A2" : fd.color} fontFamily="Instrument Sans">{`Web → Datos: ${fd.txt}`}</text>
 
       {/* exterior */}
@@ -286,10 +292,22 @@ export default function Topology() {
   const [sel, setSel] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [foco, setFoco] = useState(null);          // conexión que se está probando
+  const [hecho, setHecho] = useState(null);        // resumen de la última prueba
   const probar = async () => {
-    setBusy(true); setErr("");
-    try { await api("connectivity/", { method: "POST" }); await Promise.all([topo.reload(), orq.reload()]); } catch (e) { setErr(e.message); }
-    setBusy(false);
+    setBusy(true); setErr(""); setHecho(null);
+    const orden = ["fe-api", "api-db", "fe-db", "pf-80", "pf-443", "pf-8081"];
+    let k = 0;
+    const giro = setInterval(() => { setFoco(aristaDePrueba(orden[k % orden.length])); k += 1; }, 380);
+    try {
+      const [r] = await Promise.all([api("connectivity/", { method: "POST" }), new Promise((ok) => setTimeout(ok, 2300))]);
+      clearInterval(giro);
+      await Promise.all([topo.reload(), orq.reload()]);
+      // repaso: cada conexión se ilumina con su resultado real
+      for (const x of r.results) { setFoco(aristaDePrueba(x.id)); await new Promise((ok) => setTimeout(ok, 420)); }
+      setHecho({ ...resumen(r.results), results: r.results, at: r.created_at });
+    } catch (e) { setErr(e.message); }
+    clearInterval(giro); setFoco(null); setBusy(false);
   };
   const t = topo.data;
   // la vista de gestion muestra a los agentes en vivo
@@ -310,7 +328,14 @@ export default function Topology() {
       {t && (
         <div className="topo-layout">
           <div className="panel mapa">
-            {vista === "app" ? <VistaApp topo={t} orq={orq.data} sel={sel} onSel={setSel} /> : <VistaGestion sel={sel} onSel={setSel} orq={orq.data} />}
+            {vista === "app" && (busy || hecho) && (
+              <div className={`topo-resultado ${busy ? "probando" : hecho.mal.length ? "mal" : "ok"}`}>
+                {busy ? <><span className="spin" /><b>Probando los flujos reales…</b><span>Internet → firewall, y Web/API/Datos dentro del clúster</span></>
+                  : <><Ico n={hecho.mal.length ? "x" : "check"} /><b>{`${hecho.total} flujos probados · ${hecho.ok} cumplen${hecho.mal.length ? ` · ${hecho.mal.length} fuera de política` : ""}`}</b>
+                    <div className="topo-chips">{hecho.results.map((x) => <span key={x.id} className={`chip ${x.ok ? "ok" : "mal"}`}>{x.name.replace(" (puerto de prueba)", "")}</span>)}</div>
+                    <button className="burbuja-min" onClick={() => setHecho(null)} aria-label="Cerrar"><Ico n="x" /></button></>}
+              </div>)}
+            {vista === "app" ? <VistaApp topo={t} orq={orq.data} sel={sel} onSel={setSel} foco={foco} /> : <VistaGestion sel={sel} onSel={setSel} orq={orq.data} />}
             <div className="leyenda">
               {vista === "app" ? <>
                 <span><i style={{ borderColor: VERDE }} />Permitido y funciona</span>

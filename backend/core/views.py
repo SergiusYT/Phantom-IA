@@ -112,7 +112,8 @@ def topology(request):
         fwd = pf.collect()
         firewall = {"forwards": fwd["forwards"], "listening": fwd["listening"], "enabled": fwd["enabled"],
                     "blocked": sorted({p for r in fwd["anchor_rules"] if r["action"] == "block" for p in r["ports"]}),
-                    "allowed": fwd["allowed_ports"]}
+                    "allowed": fwd["allowed_ports"], "host": fwd["host"],
+                    "rules": [r["raw"] for r in fwd["rules"]], "anchor": [r["raw"] for r in fwd["anchor_rules"]]}
     except pf.PFError as exc:
         firewall = None
         errors.append(str(exc))

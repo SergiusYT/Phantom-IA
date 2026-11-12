@@ -11,6 +11,7 @@ import BurbujaAuditoria from "./BurbujaAuditoria.jsx";
 import { VivoProvider, useVivo } from "./vivo.jsx";
 import { ROLES } from "./AgentesK8s.jsx";
 import Topology from "./Topology.jsx";
+import Conectividad from "./Conectividad.jsx";
 import { APP_NOMBRE, APP_TECH, Tech } from "./tech.jsx";
 import {
   AntesDespues, Busy, Estado, Ico, Logo, Pruebas, SEV_ORDEN, Sev, Terminal, Toast, fecha, hora, useLoad,
@@ -164,35 +165,6 @@ function Propuesta({ id, user, ir, aviso }) {
 }
 
 /* ---------- conectividad ---------- */
-function Conectividad({ aviso }) {
-  const { data, error, reload } = useLoad(() => api("connectivity/"));
-  const [busy, setBusy] = useState(false);
-  const correr = async () => {
-    setBusy(true);
-    try { const r = await api("connectivity/", { method: "POST" }); aviso(r.passed ? "Todos los flujos cumplen la política" : "Hay flujos fuera de la política", !r.passed); await reload(); }
-    catch (e) { aviso(e.message, true); }
-    setBusy(false);
-  };
-  const ult = data?.[0];
-  return (
-    <>
-      <div className="cabeza"><div><h1>Conectividad</h1><p>¿Pasa lo que debe pasar y se bloquea lo que debe bloquearse?</p></div>
-        <button className="btn primary" onClick={correr} disabled={busy}><Busy on={busy}>{!busy && <Ico n="pulso" />}Ejecutar pruebas</Busy></button></div>
-      {error && <div className="alerta">{error}</div>}
-      <div className="rejilla r-21">
-        <div className="panel">{ult ? <>
-          <div className="panel-cab"><h3>Última ejecución</h3><span className="fila" style={{ gap: 8 }}><span className={`led ${ult.passed ? "ok" : "mal"}`} />{ult.passed ? "Cumple la política" : "Fuera de política"}</span></div>
-          <Pruebas results={ult.results} /></> : <div className="vacio">Aún no se han ejecutado pruebas.</div>}</div>
-        <div className="panel"><h3>Historial</h3>
-          {data?.length ? <table><tbody>{data.map((r) => (
-            <tr key={r.id}><td>{fecha(r.created_at)}</td><td className="num">{r.results.filter((t) => t.ok).length}/{r.results.length}</td>
-              <td><span className={`led ${r.passed ? "ok" : "mal"}`} /></td></tr>))}</tbody></table> : <div className="vacio">Sin ejecuciones.</div>}
-        </div>
-      </div>
-    </>
-  );
-}
-
 /* ---------- consola ---------- */
 const NAV = [
   ["Supervisión", [["panel", "Panel general", "panel"], ["orquestacion", "Orquestación en vivo", "capas"], ["topologia", "Topología", "red"], ["conectividad", "Conectividad", "pulso"]]],

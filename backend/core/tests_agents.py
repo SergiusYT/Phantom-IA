@@ -613,3 +613,18 @@ class SchemaAgentsTests(TestCase):
         self.assertIn("role", [c["nombre"] for c in t["cols"]])
         self.assertTrue(any(r["desde"] == "agentes" and r["hacia"] == "auditorias" for r in s["relaciones"]))
         self.assertIsNotNone(insights.table("agentes", {}))
+
+
+class TopologyFirewallDetailTests(TestCase):
+    def test_topology_exposes_pf_rules_for_the_connectivity_view(self):
+        u = User.objects.create_user("v1", password="x")
+        c = APIClient()
+        c.force_authenticate(u)
+        pfd = {**INSECURE["pf"], "forwards": [{"port": 80, "to_host": "172.16.97.1", "to_port": 30080}],
+               "anchor_rules": [{"raw": "block return in log quick proto tcp to port 8081", "action": "block", "ports": [8081]}]}
+        with patch("core.adapters.pf.collect", lambda: pfd), patch("core.adapters.k8s.collect", lambda: INSECURE["k8s"]):
+            fw = c.get("/api/topology/").json()["firewall"]
+        self.assertEqual(fw["host"], "fw")
+        self.assertIn("pass in quick proto tcp to port = 8081", fw["rules"])
+        self.assertEqual(fw["anchor"], ["block return in log quick proto tcp to port 8081"])
+        self.assertEqual(fw["blocked"], [8081])

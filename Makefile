@@ -49,7 +49,7 @@ frontend: ## Frontend React en modo desarrollo (puerto 5173)
 test: ## Pruebas: backend, arranque del contenedor y logica del panel
 	cd backend && .venv/bin/python manage.py test core
 	cd backend && sh tests_shell/entrypoint_test.sh
-	cd frontend && node --test src/flujo.test.mjs
+	cd frontend && node --test src/flujo.test.mjs src/conectividad.test.mjs
 
 up: ## Levanta TODO en orden (VMware, VM, k3d, compose) y repara lo que falte
 	@./bin/phantom-up --open
