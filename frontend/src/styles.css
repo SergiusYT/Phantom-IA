@@ -426,8 +426,8 @@ td.num, .num { font-family: var(--mono); font-size: 13px; }
 .msg.error .burbuja { border-color: rgba(255, 77, 94, .5); background: var(--brecha-bajo); color: #FFC9CE; }
 .cursor { display: inline-block; width: 8px; height: 1.05em; background: var(--a, var(--fosforo)); vertical-align: -3px; margin-left: 2px; animation: latido .8s steps(2) infinite; }
 .hechos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.hecho { padding: 6px 10px; border-radius: var(--r-s); background: rgba(2, 6, 4, .7); border: 1px solid var(--traza-2); font-size: 12.5px; color: var(--tinta-3); }
-.hecho b { display: block; font-family: var(--display); font-size: 17px; color: #F2FFF8; font-weight: 600; }
+.hechos > .hecho { padding: 6px 10px; border-radius: var(--r-s); background: rgba(2, 6, 4, .7); border: 1px solid var(--traza-2); font-size: 12.5px; color: var(--tinta-3); }
+.hechos > .hecho b { display: block; font-family: var(--display); font-size: 17px; color: #F2FFF8; font-weight: 600; }
 .prueba-l { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 20px; border: 1px solid var(--traza-2); background: var(--casco); font-size: 13px; }
 .prueba-l .ico { width: 16px; height: 16px; }
 .prueba-l.mal { border-color: rgba(255, 77, 94, .45); background: var(--brecha-bajo); }
