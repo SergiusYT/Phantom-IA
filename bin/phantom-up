@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Levanta todo PHANTOM AI en orden y repara lo que falte:
+#   modulos VMware -> red vmnet8 -> VM FreeBSD -> cluster k3d -> Docker Compose -> pruebas.
+# Solo pide sudo si VMware necesita reparacion.
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+PHX="$ROOT/bin/phx"
+PF_HOST="${PF_HOST:-172.16.97.132}"
+VMX="${PHANTOM_VMX:-$HOME/Documentos/VIrtual Machines/FreeBSD/FreeBSD/FreeBSD.vmx}"
+
+ok()   { printf '  \e[32m✔\e[0m %s\n' "$*"; }
+fix()  { printf '  \e[33m↻\e[0m %s\n' "$*"; }
+fail() { printf '  \e[31m✘\e[0m %s\n' "$*"; exit 1; }
+
+echo "PHANTOM AI: arranque"
+
+# 1. Modulos del kernel de VMware (faltan tras actualizar el kernel)
+if lsmod | grep -qw vmmon && lsmod | grep -qw vmnet; then ok "Modulos VMware cargados"
+else
+  fix "Modulos VMware ausentes: compilando/cargando (sudo)"
+  modinfo vmmon >/dev/null 2>&1 && modinfo vmnet >/dev/null 2>&1 \
+    || sudo vmware-modconfig --console --install-all >/dev/null || fail "vmware-modconfig fallo"
+  sudo modprobe -a vmmon vmnet || fail "No se pudieron cargar vmmon/vmnet"
+  ok "Modulos VMware cargados"
+fi
+
+# 2. Red virtual vmnet8 (NAT entre el host y la VM; no depende del wifi)
+if ip -br addr show vmnet8 2>/dev/null | grep -q '172\.16\.97\.1/'; then ok "Red vmnet8 activa"
+else
+  fix "Red vmnet8 caida: levantando redes VMware (sudo)"
+  sudo vmware-networks --start >/dev/null || fail "vmware-networks --start fallo"
+  ok "Red vmnet8 activa"
+fi
+
+# 3. VM FreeBSD (firewall)
+if vmrun list 2>/dev/null | grep -qF "$VMX"; then ok "VM FreeBSD encendida"
+else
+  [ -f "$VMX" ] || fail "No encuentro la VM: $VMX (define PHANTOM_VMX)"
+  fix "Encendiendo VM FreeBSD"
+  vmrun start "$VMX" nogui >/dev/null 2>&1 || fail "vmrun start fallo"
+fi
+for i in $(seq 1 30); do nc -zw2 "$PF_HOST" 22 2>/dev/null && break; sleep 3; done
+nc -zw2 "$PF_HOST" 22 2>/dev/null && ok "Firewall alcanzable ($PF_HOST)" || fail "Firewall no responde en $PF_HOST:22"
+
+# 4. Cluster k3d
+if "$PHX" k3d cluster list 2>/dev/null | grep -qE '^phantom +1/1'; then ok "Cluster k3d activo"
+else
+  fix "Arrancando cluster k3d"
+  "$PHX" k3d cluster start phantom >/dev/null 2>&1 || fail "k3d cluster start fallo"
+  ok "Cluster k3d activo"
+fi
+
+# 5. Plataforma (Docker Compose)
+[ -f .env ] || fail "Falta .env (copia .env.example)"
+"$PHX" docker compose up -d >/dev/null 2>&1 || fail "docker compose up fallo"
+for i in $(seq 1 20); do curl -fs -o /dev/null http://localhost:8088/api/health/ && break; sleep 2; done
+curl -fs -o /dev/null http://localhost:8088/api/health/ && ok "Plataforma lista" || fail "La plataforma no responde"
+
+# 6. Prueba de punta a punta: Internet -> PF -> k3d -> nginx
+code=$(curl -s -m5 -o /dev/null -w '%{http_code}' "http://$PF_HOST/")
+[ "$code" = 200 ] && ok "Trafico por el firewall OK (HTTP $code)" || fix "Trafico por el firewall devolvio HTTP $code"
+
+echo "Listo: http://localhost:8088"
+[ "${1:-}" = "--open" ] && (firefox http://localhost:8088 >/dev/null 2>&1 &)
+exit 0

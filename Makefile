@@ -4,7 +4,7 @@ PF_HOST  ?= 172.16.97.132
 ADMIN_KEY ?= $(HOME)/.ssh/id_ed25519
 PY       := backend/.venv/bin/python
 
-.PHONY: help tools cluster demo demo-reset freebsd-setup pf-reset backend frontend dev test compose-up compose-down status clean
+.PHONY: help up tools cluster demo demo-reset freebsd-setup pf-reset backend frontend dev test compose-up compose-down status clean
 
 help:
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -47,6 +47,9 @@ frontend: ## Frontend React en modo desarrollo (puerto 5173)
 
 test: ## Pruebas unitarias del backend
 	cd backend && .venv/bin/python manage.py test core
+
+up: ## Levanta TODO en orden (VMware, VM, k3d, compose) y repara lo que falte
+	@./bin/phantom-up --open
 
 compose-up: ## Levanta la plataforma con Docker Compose (http://localhost:8088)
 	@[ -f .env ] || { echo "Copia .env.example a .env primero"; exit 1; }
