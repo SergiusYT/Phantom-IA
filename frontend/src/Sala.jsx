@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import GrafoAgentes from "./GrafoAgentes.jsx";
 import { ICONOS, Ico, Sev } from "./ui.jsx";
+import { Tech } from "./tech.jsx";
 
 export const AGENTES = {
   coordinador: { nombre: "Coordinador", rol: "Reparte el trabajo y cierra la auditoría", color: "#6CD4FF", ico: "director" },
@@ -21,6 +22,8 @@ function Avatar({ a }) {
 
 function Contenido({ m, ir }) {
   const p = m.payload || {};
+  if (m.kind === "k8s") return (
+    <div className={`burbuja k8s ${p.event === "pod_failed" ? "mal" : ""}`}><Tech n="kubernetes" size={16} /><span>{m.text}</span></div>);
   if (m.kind === "data") return (
     <div className="burbuja">{m.text}
       {p.facts && <div className="hechos">{p.facts.map((f) => <div className="hecho" key={f.k}><b>{f.v}</b>{f.k}</div>)}</div>}
@@ -131,10 +134,12 @@ export default function Sala({ id, ir }) {
             const g = AGENTES[m.agent] || AGENTES.coordinador;
             const para = m.to && AGENTES[m.to] ? AGENTES[m.to].nombre : "";
             return (
-              <div key={m.seq} className={`msg ${m.kind === "error" ? "error" : ""}`} style={{ "--a": g.color }}>
+              <div key={m.seq} className={`msg ${m.kind === "error" ? "error" : ""} ${m.payload?.failed_attempt ? "fallido" : ""}`} style={{ "--a": g.color }}>
                 <Avatar a={m.agent} />
                 <div>
                   <div className="quien"><b>{g.nombre}</b>{para && <span>a {para === "Tú" ? "ti" : para}</span>}
+                    {m.payload?.failed_attempt && <span className="tag-fallido">intento fallido</span>}
+                    {m.payload?.attempt > 1 && !m.payload?.failed_attempt && <span className="tag-reintento">{`intento ${m.payload.attempt}`}</span>}
                     <span>{new Date(m.time).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span></div>
                   <Contenido m={m} ir={ir} />
                 </div>

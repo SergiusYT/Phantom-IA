@@ -6,7 +6,8 @@ import Auditorias from "./Auditorias.jsx";
 import Orquestacion from "./Orquestacion.jsx";
 import Panel from "./Panel.jsx";
 import Registro from "./Registro.jsx";
-import Sala from "./Sala.jsx";
+import Sala, { AGENTES } from "./Sala.jsx";
+import { ROLES } from "./AgentesK8s.jsx";
 import Topology from "./Topology.jsx";
 import { APP_NOMBRE, APP_TECH, Tech } from "./tech.jsx";
 import {
@@ -229,10 +230,10 @@ function Consola({ user, salir }) {
   const aviso = useCallback((msg, mal = false) => setToast({ msg, mal }), []);
   useEffect(() => { api("proposals/?status=pending").then((d) => setPend(d.length), () => {}); }, [vista]);
 
-  const auditar = async () => {
+  const auditar = async (falla = "") => {
     setCorriendo(true);
     try {
-      const a = await api("audits/run/", { method: "POST" });
+      const a = await api("audits/run/", { method: "POST", body: typeof falla === "string" && falla ? { fail_agent: falla } : {} });
       ir("sala", a.id);
     } catch (e) { aviso(e.message, true); }
     setCorriendo(false);
@@ -259,7 +260,14 @@ function Consola({ user, salir }) {
                 <Ico n={ico} />{label}{k === "propuestas" && pend > 0 && <span className="cuenta">{pend}</span>}
               </button>))}
           </React.Fragment>))}
-        <button className="btn primary accion" onClick={auditar} disabled={corriendo}><Ico n="radar" />Iniciar auditoría</button>
+        <button className="btn primary accion" onClick={() => auditar()} disabled={corriendo}><Ico n="radar" />Iniciar auditoría</button>
+        {user.operator && (
+          <details className="simular">
+            <summary>Simular la caída de un agente</summary>
+            <p>Su primer pod falla a propósito y Kubernetes lo levanta otra vez.</p>
+            <div>{ROLES.map((r) => <button key={r} className="btn ghost" disabled={corriendo} onClick={() => auditar(r)}
+              style={{ "--a": AGENTES[r].color }}><Ico n={AGENTES[r].ico} />{AGENTES[r].nombre}</button>)}</div>
+          </details>)}
         <div className="usuario"><b>{user.username}</b><span>{user.operator ? "Operador: aprueba y ejecuta" : "Observador: solo consulta"}</span>
           <button className="btn ghost" onClick={salir}><Ico n="salir" />Cerrar sesión</button></div>
       </aside>

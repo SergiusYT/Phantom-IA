@@ -23,6 +23,7 @@ const SISTEMA = { kubernetes: "Kubernetes", freebsd: "FreeBSD", ollama: "Modelo 
 // Que arista representa un mensaje
 function aristaDe(m) {
   if (!m) return null;
+  if (m.kind === "k8s" && m.payload?.role) return ["coordinador", m.payload.role];
   const t = m.text || "";
   if (m.agent === "recolector") {
     if (m.kind === "test") return ["recolector", m.payload?.test?.layer === "perimetro" ? "freebsd" : "kubernetes"];
@@ -69,6 +70,14 @@ export default function GrafoAgentes({ msgs, corriendo, agentes, iconos }) {
   const activa = corriendo ? aristaDe(ultimo) : null;
   const cuenta = msgs.reduce((a, m) => ({ ...a, [m.agent]: (a[m.agent] || 0) + 1 }), {});
   const habla = corriendo ? ultimo?.agent : null;
+  // agentes cuyo pod cayo y Kubernetes aun no ha levantado otro
+  const caidos = new Set();
+  msgs.forEach((m) => {
+    if (m.kind === "error" && N[m.agent] && m.agent !== "coordinador") caidos.add(m.agent);
+    if (m.kind === "k8s" && m.payload?.event === "pod_failed") caidos.add(m.payload.role);
+    if (m.kind === "k8s" && m.payload?.event === "retry") caidos.delete(m.payload.role);
+  });
+  if (!corriendo) caidos.clear();
   const esActiva = (a, b) => activa && ((activa[0] === a && activa[1] === b) || (activa[0] === b && activa[1] === a));
 
   return (
@@ -98,7 +107,8 @@ export default function GrafoAgentes({ msgs, corriendo, agentes, iconos }) {
             <text x={n.x} y={n.y + n.r + 16} textAnchor="middle" fill="#8FB3A2" fontSize="14" fontFamily="Instrument Sans">{SISTEMA[id]}</text>
           </g>);
         return (
-          <g key={id}>
+          <g key={id} className={caidos.has(id) ? "caido-svg" : ""}>
+            {caidos.has(id) && <circle cx={n.x} cy={n.y} r={n.r + 6} fill="none" stroke="#FF4D5E" strokeWidth="2.5" />}
             {habla === id && <circle cx={n.x} cy={n.y} r={n.r + 4} fill="none" stroke={ag.color} strokeWidth="2" className="onda-svg" />}
             <circle cx={n.x} cy={n.y} r={n.r} fill="#07110C" stroke={ag.color} strokeWidth={on ? 2.5 : 1.5} strokeOpacity={on ? 1 : .6}
               style={on ? { filter: `drop-shadow(0 0 10px ${ag.color})` } : null} />
