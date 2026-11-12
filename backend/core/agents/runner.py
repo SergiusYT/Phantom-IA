@@ -40,7 +40,8 @@ def main(argv=None):
     chat = RemoteChat(client)
     job = client.start(role)
     if job["fail"]:
-        chat.say(role, "Simulo una caída (prueba de orquestación). Kubernetes debería levantarme otra vez.", kind="error")
+        chat.say(role, "Simulo una caída (prueba de orquestación). Kubernetes debería levantarme otra vez.", kind="error",
+                 crash=True)
         return 3
     inp = job["input"]
     try:

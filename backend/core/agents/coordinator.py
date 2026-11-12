@@ -13,12 +13,12 @@ import threading
 import time
 
 from django.conf import settings
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.utils import timezone
 
 from .. import controller
 from ..agent_api import add_message
-from ..models import AgentRun, Audit, AuditMessage, Finding, Proposal, record
+from ..models import AgentRun, Audit, AuditMessage, Finding, Proposal, Severity, record
 from . import analyst, orchestrator, planner, roles
 
 PAUSA = 0.35   # ritmo de lectura entre mensajes; no altera los datos
@@ -168,6 +168,43 @@ def _stage(audit, chat, roles_):
     return out
 
 
+FINDING_FIELDS = ("rule_id", "title", "severity", "component", "description", "evidence")
+MAX_TEXT = 4000
+
+
+def _clean_findings(raw, agent):
+    """Lo que entrega un pod es dato no confiable: solo campos conocidos y valores validos."""
+    out = []
+    for f in raw if isinstance(raw, list) else []:
+        if not isinstance(f, dict) or f.get("severity") not in Severity.values:
+            continue
+        clean = {k: f.get(k) for k in FINDING_FIELDS}
+        if not all(isinstance(clean[k], str) and clean[k] for k in ("rule_id", "title", "component", "description")):
+            continue
+        clean = {**clean, "rule_id": clean["rule_id"][:20], "title": clean["title"][:200], "component": clean["component"][:100],
+                 "description": clean["description"][:MAX_TEXT], "evidence": clean["evidence"] if isinstance(clean["evidence"], dict) else {},
+                 "agent": agent}
+        out.append(clean)
+    return out
+
+
+def _proposals_from_plan(snap, found, delivered):
+    """Las propuestas las arma el backend con el planificador determinista; del pod solo se toma el texto del LLM."""
+    pod = delivered if isinstance(delivered, list) else []
+    out = []
+    for i, (prop, idx) in enumerate(planner.plan(snap, found, explain=False)):
+        rel = [found[j] for j in idx]
+        txt = None
+        if i < len(pod) and isinstance(pod[i], dict) and isinstance(pod[i].get("proposal"), dict):
+            p = pod[i]["proposal"]
+            if p.get("operation") == prop["operation"] and isinstance(p.get("llm_explanation"), str):
+                txt = p["llm_explanation"][:MAX_TEXT]
+        prop["llm_explanation"] = txt or (prop["justification"] + " " + prop["expected_impact"])
+        out.append({"proposal": prop, "finding_idx": idx,
+                    "severity": min((f["severity"] for f in rel), key=roles.SEVERITY_ORDER.index)})
+    return out
+
+
 def _run_k8s(audit_id, user_id):
     close_old_connections()
     audit = Audit.objects.get(pk=audit_id)
@@ -189,13 +226,15 @@ def _run_k8s(audit_id, user_id):
                  "fallando en la operación; auditor, compara la configuración con las reglas de seguridad.",
                  to="analista")
         par = _stage(audit, chat, ["analista", "auditor"])
-        found = par["analista"]["findings"] + par["auditor"]["findings"]
+        found = (_clean_findings((par["analista"] or {}).get("findings"), Finding.Agent.ANALYST)
+                 + _clean_findings((par["auditor"] or {}).get("findings"), Finding.Agent.AUDITOR))
         objs = _persist_findings(audit, found, chat)
 
         props = []
         if planner.plan(snap, found, explain=False):
             chat.say("coordinador", "Planificador, propón correcciones usando solo operaciones permitidas.", to="planificador")
-            props = _stage(audit, chat, ["planificador"])["planificador"]["proposals"]
+            delivered = (_stage(audit, chat, ["planificador"])["planificador"] or {}).get("proposals")
+            props = _proposals_from_plan(snap, found, delivered)
         _persist_proposals(audit, props, objs, chat)
 
         audit.snapshot, audit.errors = snap, errors
@@ -217,7 +256,8 @@ def _run_k8s(audit_id, user_id):
         Audit.objects.filter(pk=audit.pk).update(agent_token="")
         audit.agent_token = ""
         try:
-            orchestrator.cleanup(audit.id)
+            # si fallo, los Jobs hermanos ya no tienen a quien reportar: se borran. Si no, quedan visibles (TTL).
+            orchestrator.purge(audit.id) if audit.status == Audit.Status.FAILED else orchestrator.cleanup(audit.id)
         except Exception:  # noqa: BLE001 - la limpieza no debe tapar el resultado
             pass
     record("audit_finish", user, f"audit:{audit.id}", success=audit.status == Audit.Status.DONE,
@@ -231,10 +271,27 @@ def _run(audit_id, user_id):
     return _run_k8s(audit_id, user_id)
 
 
+def expire_stale():
+    """Una auditoria 'en curso' mas vieja que todos los plazos sumados quedo huerfana (hilo muerto)."""
+    from datetime import timedelta
+    limite = timezone.now() - timedelta(minutes=15)
+    for a in Audit.objects.filter(status=Audit.Status.RUNNING, created_at__lt=limite):
+        AuditMessage.objects.filter(audit=a, streaming=True).update(streaming=False)
+        a.status, a.finished_at, a.agent_token = Audit.Status.FAILED, timezone.now(), ""
+        a.errors = [*(a.errors or []), "abandonada: superó el tiempo máximo"]
+        a.save()
+        add_message(a, "coordinador", "La auditoría quedó abandonada y se cerró. Inicia una nueva.", kind="error")
+        try:
+            orchestrator.purge(a.id)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def start_audit(user=None, fail_agent=""):
     audit = Audit.objects.create(requested_by=user if user and user.is_authenticated else None, fail_agent=fail_agent)
     record("audit_start", user, f"audit:{audit.id}", fail_agent=fail_agent)
-    threading.Thread(target=_run, args=(audit.id, getattr(user, "id", None)), daemon=True).start()
+    # el hilo arranca tras el commit: si no, no veria la auditoria recien creada
+    transaction.on_commit(lambda: threading.Thread(target=_run, args=(audit.id, getattr(user, "id", None)), daemon=True).start())
     return audit
 
 

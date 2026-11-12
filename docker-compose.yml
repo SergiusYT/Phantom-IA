@@ -26,6 +26,7 @@ services:
   phantom-backend:
     build: ./backend
     network_mode: host
+    restart: unless-stopped
     env_file: .env
     environment:
       PHANTOM_DB_HOST: 127.0.0.1

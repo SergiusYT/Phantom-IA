@@ -1,6 +1,7 @@
 """API REST de PHANTOM AI."""
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.db import connection, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -130,6 +131,13 @@ class AuditDetail(generics.RetrieveAPIView):
     serializer_class = AuditDetailSerializer
 
 
+def _lock_audits():
+    """Candado de transaccion para iniciar auditorias (PostgreSQL). SQLite ya serializa las escrituras."""
+    if connection.vendor == "postgresql":
+        with connection.cursor() as c:
+            c.execute("SELECT pg_advisory_xact_lock(%s)", [7041])
+
+
 @api_view(["POST"])
 def start_audit(request):
     """Inicia la auditoria en segundo plano; el progreso se lee en /audits/<id>/messages/.
@@ -141,9 +149,12 @@ def start_audit(request):
         return Response({"detail": "Agente desconocido"}, status=400)
     if fail and not is_operator(request.user):
         return Response({"detail": "Solo un operador puede simular fallos"}, status=403)
-    if Audit.objects.filter(status=Audit.Status.RUNNING).exists():
-        return Response({"detail": "Ya hay una auditoría en curso"}, status=409)
-    audit = coordinator.start_audit(request.user, fail_agent=fail)
+    coordinator.expire_stale()
+    with transaction.atomic():
+        _lock_audits()   # dos pedidos simultaneos (distintos workers) no pueden pasar ambos el chequeo
+        if Audit.objects.filter(status=Audit.Status.RUNNING).exists():
+            return Response({"detail": "Ya hay una auditoría en curso"}, status=409)
+        audit = coordinator.start_audit(request.user, fail_agent=fail)
     return Response({"id": audit.id, "status": audit.status}, status=status.HTTP_202_ACCEPTED)
 
 

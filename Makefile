@@ -46,8 +46,10 @@ backend: ## Backend Django en modo desarrollo (puerto 8000)
 frontend: ## Frontend React en modo desarrollo (puerto 5173)
 	cd frontend && npm run dev
 
-test: ## Pruebas unitarias del backend
+test: ## Pruebas: backend, arranque del contenedor y logica del panel
 	cd backend && .venv/bin/python manage.py test core
+	cd backend && sh tests_shell/entrypoint_test.sh
+	cd frontend && node --test src/caidos.test.mjs
 
 up: ## Levanta TODO en orden (VMware, VM, k3d, compose) y repara lo que falte
 	@./bin/phantom-up --open

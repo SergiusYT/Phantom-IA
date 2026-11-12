@@ -1,4 +1,5 @@
 import React from "react";
+import { caidosDe } from "./caidos.js";
 import { TechG } from "./tech.jsx";
 
 /* Red de agentes: nodos = agentes y sistemas reales; la arista activa muestra quien habla con quien. */
@@ -70,14 +71,7 @@ export default function GrafoAgentes({ msgs, corriendo, agentes, iconos }) {
   const activa = corriendo ? aristaDe(ultimo) : null;
   const cuenta = msgs.reduce((a, m) => ({ ...a, [m.agent]: (a[m.agent] || 0) + 1 }), {});
   const habla = corriendo ? ultimo?.agent : null;
-  // agentes cuyo pod cayo y Kubernetes aun no ha levantado otro
-  const caidos = new Set();
-  msgs.forEach((m) => {
-    if (m.kind === "error" && N[m.agent] && m.agent !== "coordinador") caidos.add(m.agent);
-    if (m.kind === "k8s" && m.payload?.event === "pod_failed") caidos.add(m.payload.role);
-    if (m.kind === "k8s" && m.payload?.event === "retry") caidos.delete(m.payload.role);
-  });
-  if (!corriendo) caidos.clear();
+  const caidos = caidosDe(msgs.filter((m) => N[m.agent] || m.kind === "k8s"), corriendo);
   const esActiva = (a, b) => activa && ((activa[0] === a && activa[1] === b) || (activa[0] === b && activa[1] === a));
 
   return (
