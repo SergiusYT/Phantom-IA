@@ -1,0 +1,49 @@
+# PHANTOM AI - plataforma (frontend, backend, PostgreSQL).
+# Usa red del host para alcanzar la API de k3d, la VM FreeBSD (vmnet) y Ollama.
+services:
+  phantom-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: phantom
+      POSTGRES_USER: phantom
+      POSTGRES_PASSWORD: ${PHANTOM_DB_PASSWORD:?define PHANTOM_DB_PASSWORD en .env}
+    ports: ["127.0.0.1:5433:5432"]
+    volumes: [phantom-db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phantom"]
+      interval: 3s
+      retries: 20
+
+  # Lectura de contenedores con minimo privilegio: el backend nunca ve el socket de Docker.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    ports: ["127.0.0.1:2375:2375"]
+
+  phantom-backend:
+    build: ./backend
+    network_mode: host
+    env_file: .env
+    environment:
+      PHANTOM_DB_HOST: 127.0.0.1
+      PHANTOM_DB_PORT: "5433"
+      PHANTOM_DEBUG: "0"
+      KUBECONFIG: /run/phantom/kubeconfig
+      PHANTOM_PF_KEY: /run/phantom/phantom_ed25519
+    volumes:
+      - ./.kube/config:/run/phantom/kubeconfig:ro
+      - ./infra/keys/phantom_ed25519:/run/phantom/phantom_ed25519:ro
+    depends_on:
+      phantom-db: {condition: service_healthy}
+      docker-proxy: {condition: service_started}
+
+  phantom-frontend:
+    build: ./frontend
+    network_mode: host
+    depends_on: [phantom-backend]
+
+volumes:
+  phantom-db:

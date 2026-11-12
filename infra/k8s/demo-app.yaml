@@ -1,0 +1,129 @@
+# PHANTOM AI - Aplicacion de laboratorio (frontend, API, base de datos).
+# Estado inicial DELIBERADAMENTE inseguro para la demostracion:
+#   - Sin NetworkPolicy restrictiva (politica allow-all presente).
+#   - La base de datos esta expuesta como NodePort.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phantom-demo
+  labels:
+    phantom.io/managed: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: phantom-demo
+  labels: {app: frontend, tier: web}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend, tier: web}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: phantom-demo
+  labels: {app: frontend}
+spec:
+  type: NodePort
+  selector: {app: frontend}
+  ports:
+    - {name: http, port: 80, targetPort: 80, nodePort: 30080}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: phantom-demo
+  labels: {app: api, tier: backend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: api}
+  template:
+    metadata:
+      labels: {app: api, tier: backend}
+    spec:
+      containers:
+        - name: api
+          image: python:3.12-alpine
+          command: ["python", "-m", "http.server", "8080"]
+          ports: [{containerPort: 8080}]
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: phantom-demo
+  labels: {app: api}
+spec:
+  type: ClusterIP
+  selector: {app: api}
+  ports:
+    - {name: http, port: 8080, targetPort: 8080}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: phantom-demo
+  labels: {app: db, tier: data}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: db}
+  template:
+    metadata:
+      labels: {app: db, tier: data}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - {name: POSTGRES_PASSWORD, value: demo-lab-only}
+            - {name: POSTGRES_DB, value: demo}
+          ports: [{containerPort: 5432}]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+# Riesgo deliberado: base de datos expuesta fuera del cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: phantom-demo
+  labels: {app: db}
+spec:
+  type: NodePort
+  selector: {app: db}
+  ports:
+    - {name: postgres, port: 5432, targetPort: 5432, nodePort: 30082}
+---
+# Riesgo deliberado: politica que permite todo el trafico de entrada.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+  namespace: phantom-demo
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - {}

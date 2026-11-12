@@ -1,0 +1,87 @@
+#!/bin/sh
+# PHANTOM AI - Canal de gestion restringido para PF.
+# Se instala en /usr/local/sbin/phantom-pf y se fuerza en authorized_keys:
+#   command="/usr/local/sbin/phantom-pf",restrict ssh-ed25519 AAAA... phantom-controller
+# Solo acepta las operaciones de la lista permitida. Nunca ejecuta texto libre.
+
+ANCHOR="phantom"
+STATE_DIR="/var/db/phantom"
+RULES="$STATE_DIR/anchor.rules"
+LOG="/var/log/phantom-pf.log"
+
+mkdir -p "$STATE_DIR"
+touch "$RULES"
+
+CMD="${SSH_ORIGINAL_COMMAND:-$*}"
+set -- $CMD
+OP="$1"
+ARG="$2"
+
+log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) op=$OP arg=$ARG result=$1" >> "$LOG"; }
+
+valid_port() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -ge 1 ] && [ "$1" -le 65535 ] || return 1
+    # Puertos de gestion protegidos: nunca se bloquean desde PHANTOM.
+    [ "$1" -ne 22 ] || return 1
+    return 0
+}
+
+reload_anchor() {
+    pfctl -a "$ANCHOR" -nf "$RULES" 2>&1 || return 1
+    pfctl -a "$ANCHOR" -f "$RULES" 2>&1
+}
+
+case "$OP" in
+    status)
+        pfctl -si 2>&1 | head -20
+        ;;
+    rules)
+        pfctl -sr 2>&1
+        ;;
+    anchor)
+        pfctl -a "$ANCHOR" -sr 2>&1
+        ;;
+    nat)
+        pfctl -sn 2>&1
+        ;;
+    listening)
+        sockstat -4 -l -P tcp 2>&1
+        ;;
+    logs)
+        tail -n 50 "$LOG" 2>/dev/null
+        ;;
+    block-port)
+        valid_port "$ARG" || { echo "ERROR: puerto invalido o protegido"; log rejected; exit 2; }
+        if grep -q "port $ARG\$" "$RULES"; then
+            echo "OK: ya bloqueado"; log noop; exit 0
+        fi
+        cp "$RULES" "$RULES.bak"
+        echo "block return in log quick proto tcp to port $ARG" >> "$RULES"
+        if reload_anchor; then echo "OK: puerto $ARG bloqueado"; log applied
+        else cp "$RULES.bak" "$RULES"; reload_anchor >/dev/null; echo "ERROR: regla invalida, revertido"; log failed; exit 1; fi
+        ;;
+    unblock-port)
+        valid_port "$ARG" || { echo "ERROR: puerto invalido o protegido"; log rejected; exit 2; }
+        cp "$RULES" "$RULES.bak"
+        grep -v "port $ARG\$" "$RULES.bak" > "$RULES"
+        if reload_anchor; then echo "OK: puerto $ARG desbloqueado"; log applied
+        else cp "$RULES.bak" "$RULES"; reload_anchor >/dev/null; echo "ERROR: revertido"; log failed; exit 1; fi
+        ;;
+    restore)
+        [ -f "$RULES.bak" ] || { echo "ERROR: no hay respaldo"; log failed; exit 1; }
+        cp "$RULES.bak" "$RULES"
+        reload_anchor && { echo "OK: respaldo restaurado"; log applied; }
+        ;;
+    reset-lab)
+        : > "$RULES"
+        reload_anchor && { echo "OK: anchor vaciado (estado inicial)"; log applied; }
+        ;;
+    *)
+        echo "ERROR: operacion no permitida: $OP"
+        log rejected
+        exit 2
+        ;;
+esac

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Ejecuta un comando con el entorno de PHANTOM (Docker nativo + kubectl/k3d del proyecto).
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$ROOT/bin:$PATH" DOCKER_CONFIG="$ROOT/.docker" DOCKER_HOST=unix:///var/run/docker.sock
+export KUBECONFIG="$ROOT/.kube/config"
+mkdir -p "$ROOT/.kube"
+if id -nG | grep -qw docker; then exec "$@"; else exec sg docker -c "$(printf '%q ' "$@")"; fi
