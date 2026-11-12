@@ -141,7 +141,7 @@ export default function Conectividad({ aviso }) {
       <div className="rejilla r-21">
         <div className="panel">
           <div className="panel-cab"><h3>Cada flujo probado</h3>{(busy || animando) && <span className="vivo-tag"><span className="led ok" />probando</span>}</div>
-          {busy ? <div className="cx-lista">{["Interior: Web → API", "Interior: API → Datos", "Interior: Web → Datos", "Perímetro: Internet → :80", "Perímetro: Internet → :443", "Perímetro: Internet → :8081"].map((t) => (
+          {busy ? <div className="cx-lista">{["Interior: Web → API", "Interior: API → Datos", "Interior: Web → Datos", "Perímetro: Internet → :80", "Perímetro: Internet → :443", "Perímetro: Internet → :8081", "Perímetro: gestión SSH :22"].map((t) => (
             <div key={t} className="cx-fila probando"><span className="spin" /><span>{t}</span><span className="tenue">probando…</span></div>))}</div>
             : results.length ? <div className="cx-lista">{visibles.map((r) => (
               <div key={r.id} className={`cx-fila ${r.ok ? "ok" : "mal"}`}>

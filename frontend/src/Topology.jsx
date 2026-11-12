@@ -296,7 +296,7 @@ export default function Topology() {
   const [hecho, setHecho] = useState(null);        // resumen de la última prueba
   const probar = async () => {
     setBusy(true); setErr(""); setHecho(null);
-    const orden = ["fe-api", "api-db", "fe-db", "pf-80", "pf-443", "pf-8081"];
+    const orden = ["fe-api", "api-db", "fe-db", "pf-80", "pf-443", "pf-8081", "pf-22"];
     let k = 0;
     const giro = setInterval(() => { setFoco(aristaDePrueba(orden[k % orden.length])); k += 1; }, 380);
     try {

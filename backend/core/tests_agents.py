@@ -628,3 +628,19 @@ class TopologyFirewallDetailTests(TestCase):
         self.assertIn("pass in quick proto tcp to port = 8081", fw["rules"])
         self.assertEqual(fw["anchor"], ["block return in log quick proto tcp to port 8081"])
         self.assertEqual(fw["blocked"], [8081])
+
+
+class PerimeterSSHTests(TestCase):
+    def test_management_ssh_is_tested_and_must_stay_open(self):
+        from . import connectivity
+        t = {x["id"]: x for x in connectivity.perimeter_tests()}
+        self.assertIn("pf-22", t)
+        self.assertEqual((t["pf-22"]["port"], t["pf-22"]["expect"]), (22, True))
+
+    def test_open_ssh_is_not_a_finding_and_never_proposed_for_blocking(self):
+        from .agents import planner
+        snap = {**INSECURE, "connectivity": INSECURE["connectivity"] + [
+            {"id": "pf-22", "name": "Gestión SSH :22", "layer": "perimetro", "port": 22, "expect": True, "reachable": True, "ok": True}]}
+        found = auditor.audit(snap, [22, 80, 443])
+        self.assertFalse(any(f["rule_id"] == "SEC-NET-001" and f["evidence"]["test"]["id"] == "pf-22" for f in found))
+        self.assertFalse(any(p["params"].get("port") == 22 for p, _ in planner.plan(snap, found, explain=False)))

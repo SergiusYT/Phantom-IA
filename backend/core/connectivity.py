@@ -18,6 +18,8 @@ def perimeter_tests():
     tests = [{"id": f"pf-{p}", "name": f"Internet -> Web por el firewall :{p}", "port": p, "expect": True}
              for p in settings.PHANTOM["PF_ALLOWED_PORTS"] if p in (80, 443)]
     tests.append({"id": "pf-8081", "name": "Internet -> firewall :8081 (puerto de prueba)", "port": 8081, "expect": False})
+    # gestion: debe seguir abierto (PHANTOM nunca lo bloquea); si se cae, el analista lo reporta
+    tests.append({"id": "pf-22", "name": "Gestión SSH por el firewall :22", "port": 22, "expect": True})
     return tests
 
 
