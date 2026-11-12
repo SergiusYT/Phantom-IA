@@ -29,10 +29,11 @@ demo-reset: ## Devuelve Kubernetes al estado inicial inseguro (para repetir la d
 	$(PHX) kubectl apply -f infra/k8s/demo-app.yaml
 
 freebsd-setup: ## Configura PF, servicios de prueba y el canal restringido en la VM
+	@[ -f infra/keys/phantom_ro_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C phantom-agent-ro -f infra/keys/phantom_ro_ed25519
 	ssh -i $(ADMIN_KEY) -o IdentitiesOnly=yes root@$(PF_HOST) 'mkdir -p /tmp/phantom'
 	scp -i $(ADMIN_KEY) -o IdentitiesOnly=yes -q infra/freebsd/pf.conf infra/freebsd/phantom-pf infra/freebsd/setup.sh root@$(PF_HOST):/tmp/phantom/
 	@# En segundo plano: al activar PF la sesion SSH en curso puede quedar sin estado.
-	ssh -i $(ADMIN_KEY) -o IdentitiesOnly=yes root@$(PF_HOST) "nohup sh /tmp/phantom/setup.sh '$$(cat infra/keys/phantom_ed25519.pub)' > /tmp/phantom/setup.log 2>&1 &"
+	ssh -i $(ADMIN_KEY) -o IdentitiesOnly=yes root@$(PF_HOST) "nohup sh /tmp/phantom/setup.sh '$$(cat infra/keys/phantom_ed25519.pub)' '$$(cat infra/keys/phantom_ro_ed25519.pub)' > /tmp/phantom/setup.log 2>&1 &"
 	@sleep 10
 	ssh -i $(ADMIN_KEY) -o IdentitiesOnly=yes root@$(PF_HOST) cat /tmp/phantom/setup.log
 

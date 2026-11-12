@@ -12,12 +12,23 @@ LOG="/var/log/phantom-pf.log"
 mkdir -p "$STATE_DIR"
 touch "$RULES"
 
+# Modo solo lectura: authorized_keys fuerza "phantom-pf --ro" para la llave de los agentes.
+RO=0
+if [ "$1" = "--ro" ]; then RO=1; shift; fi
+
 CMD="${SSH_ORIGINAL_COMMAND:-$*}"
 set -- $CMD
 OP="$1"
 ARG="$2"
 
-log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) op=$OP arg=$ARG result=$1" >> "$LOG"; }
+log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) op=$OP arg=$ARG ro=$RO result=$1" >> "$LOG"; }
+
+if [ "$RO" = 1 ]; then
+    case "$OP" in
+        block-port|unblock-port|restore|reset-lab)
+            echo "ERROR: canal de solo lectura"; log rejected-ro; exit 2 ;;
+    esac
+fi
 
 valid_port() {
     case "$1" in

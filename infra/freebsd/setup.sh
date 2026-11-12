@@ -3,7 +3,8 @@
 # Uso desde el host:  make freebsd-setup
 set -e
 
-PUBKEY="$1"   # llave publica del controlador PHANTOM (restringida)
+PUBKEY="$1"     # llave publica del controlador PHANTOM (restringida)
+RO_PUBKEY="$2"  # llave publica de los agentes (solo lectura)
 EXT_IF=$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')
 EXT_IF=${EXT_IF:-em0}
 
@@ -54,8 +55,9 @@ pfctl -a phantom -f /var/db/phantom/anchor.rules
 if [ -n "$PUBKEY" ]; then
     mkdir -p /root/.ssh && chmod 700 /root/.ssh
     touch /root/.ssh/authorized_keys
-    grep -v 'phantom-controller' /root/.ssh/authorized_keys > /root/.ssh/ak.tmp || true
+    grep -v -e 'phantom-controller' -e 'phantom-agent-ro' /root/.ssh/authorized_keys > /root/.ssh/ak.tmp || true
     echo "command=\"/usr/local/sbin/phantom-pf\",restrict $PUBKEY" >> /root/.ssh/ak.tmp
+    [ -n "$RO_PUBKEY" ] && echo "command=\"/usr/local/sbin/phantom-pf --ro\",restrict $RO_PUBKEY" >> /root/.ssh/ak.tmp
     mv /root/.ssh/ak.tmp /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
 fi
