@@ -602,3 +602,14 @@ class AITrimTests(TestCase):
     def test_dangling_list_number_is_removed(self):
         from .agents import llm
         self.assertEqual(llm._frase_completa("1. Segmentar la red entre frontend y datos.\n\n2."), "1. Segmentar la red entre frontend y datos.")
+
+
+class SchemaAgentsTests(TestCase):
+    def test_schema_includes_agent_runs_linked_to_audits(self):
+        from . import insights
+        s = insights.schema()
+        t = next((x for x in s["tablas"] if x["id"] == "agentes"), None)
+        self.assertIsNotNone(t)
+        self.assertIn("role", [c["nombre"] for c in t["cols"]])
+        self.assertTrue(any(r["desde"] == "agentes" and r["hacia"] == "auditorias" for r in s["relaciones"]))
+        self.assertIsNotNone(insights.table("agentes", {}))

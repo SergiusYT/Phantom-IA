@@ -16,12 +16,12 @@ export default function BurbujaAuditoria({ enSala, ir }) {
   const abrir = () => ir("sala", vivo.id);
   if (mini) return (
     <button className="burbuja-flot mini" style={{ "--a": ag.color }} onClick={abrir} aria-label="Volver a la auditoría en curso">
-      <span className="anillo" /><Ico n={ag.ico} />
+      <span className="burbuja-anillo" /><Ico n={ag.ico} />
     </button>);
   return (
     <div className="burbuja-flot" style={{ "--a": ag.color }} role="status">
       <button className="burbuja-cuerpo" onClick={abrir} aria-label="Volver a la auditoría en curso">
-        <span className="burbuja-av"><span className="anillo" /><Ico n={ag.ico} /></span>
+        <span className="burbuja-av"><span className="burbuja-anillo" /><Ico n={ag.ico} /></span>
         <span className="burbuja-txt">
           <b>{`Auditoría ${vivo.id} · ${ETAPAS[etapa]}`}</b>
           <span>{queHace(ultimo)}</span>

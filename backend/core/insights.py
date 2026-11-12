@@ -2,7 +2,7 @@
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 
-from .models import Audit, AuditEvent, AuditMessage, ConnectivityRun, Execution, Finding, Proposal
+from .models import AgentRun, Audit, AuditEvent, AuditMessage, ConnectivityRun, Execution, Finding, Proposal
 
 PESO = {"critical": 25, "high": 12, "medium": 5, "low": 2, "info": 0}
 SEVS = ["critical", "high", "medium", "low"]
@@ -82,6 +82,10 @@ TABLAS = {
     "pruebas": {"model": ConnectivityRun, "nombre": "Pruebas de red", "desc": "Resultados de conectividad",
                 "cols": [("id", "N.º", "num"), ("created_at", "Fecha", "fecha"), ("requested_by", "Por", "user"), ("passed", "Cumple", "bool")],
                 "filtros": ["passed"], "buscar": []},
+    "agentes": {"model": AgentRun, "nombre": "Agentes (pods)", "desc": "Cada agente que Kubernetes ejecutó en una auditoría",
+                "cols": [("audit_id", "Auditoría", "num"), ("role", "Agente", "agente"), ("status", "Estado", "estado"),
+                         ("attempts", "Intentos", "num"), ("job_name", "Job de Kubernetes", "mono"), ("started_at", "Inicio", "fecha")],
+                "filtros": ["role", "status", "audit_id"], "buscar": ["job_name"]},
     "mensajes": {"model": AuditMessage, "nombre": "Mensajes de agentes", "desc": "La conversación de cada auditoría",
                  "cols": [("audit_id", "Auditoría", "num"), ("seq", "N.º", "num"), ("agent", "Agente", "agente"),
                           ("kind", "Tipo", "tipo"), ("text", "Mensaje", "texto")],
@@ -140,6 +144,7 @@ def table(nombre, params, page_size=25):
 # ---------- esquema (diagrama entidad-relacion) ----------
 TIPO = {"BigAutoField": "id", "AutoField": "id", "CharField": "texto", "TextField": "texto largo", "DateTimeField": "fecha",
         "BooleanField": "sí/no", "JSONField": "json", "PositiveIntegerField": "número", "IntegerField": "número",
+        "PositiveSmallIntegerField": "número",
         "ForeignKey": "referencia", "EmailField": "texto"}
 OCULTAS = {"password", "agent_token", "first_name", "last_name", "email", "is_staff", "is_active"}   # no aportan al diagrama o son sensibles
 
