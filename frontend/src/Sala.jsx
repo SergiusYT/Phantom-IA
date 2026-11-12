@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api } from "./api.js";
 import MapaVivo from "./MapaVivo.jsx";
+import { useVivo } from "./vivo.jsx";
 import { ETAPAS, estadoAgentes, etapaActual, queHace } from "./flujo.js";
 import { ICONOS, Ico, Sev } from "./ui.jsx";
 import { Tech } from "./tech.jsx";
@@ -78,47 +78,27 @@ function Contenido({ m, ir }) {
 }
 
 export default function Sala({ id, ir }) {
-  const [st, setSt] = useState({ status: "running", messages: [] });
-  const [err, setErr] = useState("");
+  const vivo = useVivo();
+  useEffect(() => { vivo.seguir(id); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const propia = vivo.id === id;
+  const st = propia ? vivo.st : { status: "running", messages: [] };
+  const err = propia ? vivo.err : "";
+  const todos = propia ? vivo.todos : [];
+  const msgs = propia ? vivo.msgs : [];
+  const reproduciendo = propia && vivo.reproduciendo;
+
+  // el chat solo baja solo si ya estabas abajo: si subes a leer, no te arrastra
   const fondo = useRef(null);
-  const n = useRef(0);
-  const [mostrados, setMostrados] = useState(null);   // cola de reproduccion: cuantos mensajes se ven
-
-  useEffect(() => {
-    let vivo = true, t;
-    const tick = () => api(`audits/${id}/messages/`).then((r) => {
-      if (!vivo) return;
-      setSt(r); setErr("");
-      // al abrir una auditoria ya terminada se muestra completa; si esta en curso se reproduce
-      setMostrados((m) => (m === null ? (r.status === "running" ? 0 : r.messages.length) : m));
-      const sigue = r.status === "running" || r.messages.some((m) => m.streaming);
-      if (sigue) t = setTimeout(tick, 600);
-    }, (e) => { if (vivo) { setErr(e.message); t = setTimeout(tick, 2000); } });
-    tick();
-    return () => { vivo = false; clearTimeout(t); };
-  }, [id]);
-
-  const todos = st.messages.map((m) => ({ ...m, audit: id }));
-  const visibles = mostrados ?? 0;
-  useEffect(() => {
-    if (mostrados === null || mostrados >= todos.length) return;
-    const actual = todos[mostrados - 1];
-    if (actual?.streaming) return;                      // espera a que la IA termine de escribir
-    const atraso = todos.length - mostrados;
-    const espera = mostrados === 0 ? 300 : atraso > 10 ? 450 : atraso > 4 ? 900 : 1600;
-    const t = setTimeout(() => setMostrados((m) => m + 1), espera);
-    return () => clearTimeout(t);
-  }, [mostrados, todos.length, todos[visibles - 1]?.streaming]); // eslint-disable-line react-hooks/exhaustive-deps
-  const msgs = todos.slice(0, visibles);
-  const reproduciendo = visibles < todos.length;
+  const pegado = useRef(true);
+  const alDesplazar = () => {
+    const c = fondo.current;
+    if (c) pegado.current = c.scrollHeight - c.scrollTop - c.clientHeight < 90;
+  };
   const total = msgs.reduce((a, m) => a + m.text.length, 0);
   useEffect(() => {
-    if (msgs.length !== n.current || msgs.some((m) => m.streaming)) {
-      n.current = msgs.length;
-      const c = fondo.current;
-      if (c) c.scrollTop = c.scrollHeight;
-    }
-  }, [msgs.length, total]); // eslint-disable-line react-hooks/exhaustive-deps
+    const c = fondo.current;
+    if (c && pegado.current) c.scrollTop = c.scrollHeight;
+  }, [msgs.length, total]);
 
   const corriendo = st.status === "running" || reproduciendo;
   const ultimo = msgs[msgs.length - 1];
@@ -136,7 +116,7 @@ export default function Sala({ id, ir }) {
             <li className="tiempo"><Cronometro desde={todos[0]?.time} hasta={todos[todos.length - 1]?.time} vivo={st.status === "running"} /></li>
           </ol></div>
         {corriendo ? <span className="vivo-tag"><span className="led ok" />{st.status === "running" ? "En curso" : "Reproduciendo"}</span>
-          : <div className="fila"><button className="btn" onClick={() => setMostrados(0)}><Ico n="revertir" />Repetir conversación</button><button className="btn ghost" onClick={() => ir("auditoria", id)}>Ver informe</button></div>}
+          : <div className="fila"><button className="btn" onClick={() => { pegado.current = true; vivo.repetir(); }}><Ico n="revertir" />Repetir conversación</button><button className="btn ghost" onClick={() => ir("auditoria", id)}>Ver informe</button></div>}
       </div>
       {err && <div className="alerta">{err}</div>}
       <div className="sala-vivo">
@@ -155,7 +135,7 @@ export default function Sala({ id, ir }) {
       </div>
       <div className="panel sala-chat">
         <h3 className="sala-t">Conversación</h3>
-        <div className="chat" aria-live="polite" ref={fondo}>
+        <div className="chat" aria-live="polite" ref={fondo} onScroll={alDesplazar}>
           {msgs.map((m) => {
             const g = AGENTES[m.agent] || AGENTES.coordinador;
             const para = m.to && AGENTES[m.to] ? AGENTES[m.to].nombre : "";

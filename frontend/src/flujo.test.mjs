@@ -57,3 +57,18 @@ test("la etapa sale del estado de los agentes", () => {
   assert.equal(etapaActual(estadoAgentes([k8s("job", "planificador")], true), true), 2);
   assert.equal(etapaActual({}, false), 3);
 });
+
+import { esperaPara } from "./flujo.js";
+
+test("un razonamiento con IA se queda en pantalla el tiempo suficiente para ver la conexión", () => {
+  const ia = { agent: "recolector", kind: "say", text: "x", payload: { ai: true, title: "t" } };
+  assert.ok(esperaPara(ia, 30) >= 4000);
+  assert.ok(esperaPara({ agent: "planificador", kind: "say", text: "x", payload: { operation: "op" } }, 30) >= 4000);
+});
+
+test("los mensajes normales se ponen al día rápido si hay atraso", () => {
+  const normal = { agent: "recolector", kind: "test", text: "", payload: {} };
+  assert.equal(esperaPara(undefined, 20), 300);
+  assert.ok(esperaPara(normal, 20) <= 500);
+  assert.ok(esperaPara(normal, 1) >= 1200);
+});

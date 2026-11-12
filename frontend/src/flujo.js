@@ -83,3 +83,11 @@ export function queHace(m) {
   if (m.kind === "error") return "Hubo un problema; mira la conversación.";
   return `${NOMBRE[m.agent] || "El coordinador"} habla${m.to && NOMBRE[m.to] ? ` con ${NOMBRE[m.to].toLowerCase()}` : ""}.`;
 }
+
+/* Cuánto se queda un mensaje en pantalla antes de mostrar el siguiente (reproducción).
+   `actual` es el último mensaje visible; `atraso`, cuántos faltan por mostrar. */
+export function esperaPara(actual, atraso) {
+  if (!actual) return 300;
+  if (esIA(actual)) return 4500;          // que se vea al agente conectado con la IA
+  return atraso > 10 ? 450 : atraso > 4 ? 900 : 1600;
+}

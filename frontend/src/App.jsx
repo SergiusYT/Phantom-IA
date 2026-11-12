@@ -7,6 +7,8 @@ import Orquestacion from "./Orquestacion.jsx";
 import Panel from "./Panel.jsx";
 import Registro from "./Registro.jsx";
 import Sala, { AGENTES } from "./Sala.jsx";
+import BurbujaAuditoria from "./BurbujaAuditoria.jsx";
+import { VivoProvider, useVivo } from "./vivo.jsx";
 import { ROLES } from "./AgentesK8s.jsx";
 import Topology from "./Topology.jsx";
 import { APP_NOMBRE, APP_TECH, Tech } from "./tech.jsx";
@@ -221,6 +223,7 @@ function Consola({ user, salir }) {
   });
   const [corriendo, setCorriendo] = useState(false);
   const [toast, setToast] = useState({ msg: "", mal: false });
+  const vivoAud = useVivo();
   const vivo = useLoad(() => api("overview/"), [vista[0] === "panel" ? vista : "x"]);
   const [pend, setPend] = useState(0);
 
@@ -234,11 +237,13 @@ function Consola({ user, salir }) {
     setCorriendo(true);
     try {
       const a = await api("audits/run/", { method: "POST", body: typeof falla === "string" && falla ? { fail_agent: falla } : {} });
+      vivoAud.seguir(a.id, { desdeCero: true });
       ir("sala", a.id);
     } catch (e) { aviso(e.message, true); }
     setCorriendo(false);
   };
   const abrirSala = async () => {
+    if (vivoAud.id && vivoAud.corriendo) { ir("sala", vivoAud.id); return; }   // vuelve a la que está en vivo
     try {
       const l = await api("audits/");
       if (l.length) ir("sala", l[0].id); else aviso("Aún no hay auditorías: inicia una para ver a los agentes.");
@@ -286,7 +291,8 @@ function Consola({ user, salir }) {
           {v === "registro" && <Registro />}
         </main>
       </div>
-            <Toast msg={toast.msg} mal={toast.mal} onDone={() => setToast({ msg: "", mal: false })} />
+      <BurbujaAuditoria enSala={v === "sala"} ir={ir} />
+      <Toast msg={toast.msg} mal={toast.mal} onDone={() => setToast({ msg: "", mal: false })} />
     </div>
   );
 }
@@ -307,5 +313,5 @@ export default function App() {
   if (!listo) return null;
   if (pantalla === "portada") return <Portada entrar={() => { setPantalla("consola"); history.replaceState(null, "", "#/panel"); }} />;
   if (!user) return <Acceso onLogin={setUser} volver={() => { setPantalla("portada"); history.replaceState(null, "", location.pathname); }} />;
-  return <Consola user={user} salir={() => { auth.set(null); setUser(null); }} />;
+  return <VivoProvider><Consola user={user} salir={() => { auth.set(null); setUser(null); }} /></VivoProvider>;
 }
