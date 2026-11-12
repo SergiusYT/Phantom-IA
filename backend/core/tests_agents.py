@@ -557,6 +557,11 @@ class AIContextTests(TestCase):
         self.assertIn("30082", linea("db"))
         self.assertIn("solo interno", linea("api"))
         self.assertNotIn("EXPUESTO", linea("api"))
+        resumen = ctx.splitlines()[0]
+        self.assertTrue(resumen.startswith("RESUMEN: expuestos fuera del clúster: "))
+        self.assertIn("db", resumen)
+        self.assertIn("frontend", resumen)
+        self.assertIn("solo internos: api", resumen)
 
     def test_llm_waits_long_enough_for_queued_requests(self):
         from .agents import llm

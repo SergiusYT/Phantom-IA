@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import GrafoAgentes from "./GrafoAgentes.jsx";
+import MapaVivo from "./MapaVivo.jsx";
+import { ETAPAS, estadoAgentes, etapaActual, queHace } from "./flujo.js";
 import { ICONOS, Ico, Sev } from "./ui.jsx";
 import { Tech } from "./tech.jsx";
 
@@ -13,7 +14,14 @@ export const AGENTES = {
   operador: { nombre: "Tú", rol: "Apruebas o rechazas cada cambio", color: "#F2FFF8", ico: "usuario" },
 };
 const COLOR_SEV = { critical: "#FF4D5E", high: "#FF8A3D", medium: "#FFD25C", low: "#6CD4FF", info: "#8FB3A2" };
-const FASES = ["recolector", "analista", "auditor", "planificador", "fin"];
+
+function Cronometro({ desde, hasta, vivo }) {
+  const [, tick] = useState(0);
+  useEffect(() => { if (!vivo) return; const i = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(i); }, [vivo]);
+  if (!desde) return null;
+  const s = Math.max(0, Math.round(((vivo ? Date.now() : new Date(hasta).getTime()) - new Date(desde).getTime()) / 1000));
+  return <span className="crono-sala">{`${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`}</span>;
+}
 
 function Avatar({ a }) {
   const g = AGENTES[a] || AGENTES.coordinador;
@@ -115,19 +123,36 @@ export default function Sala({ id, ir }) {
   const corriendo = st.status === "running" || reproduciendo;
   const ultimo = msgs[msgs.length - 1];
   const habla = corriendo ? (ultimo?.streaming ? ultimo.agent : ultimo?.to && AGENTES[ultimo.to] && ultimo.to !== "operador" ? ultimo.to : ultimo?.agent) : null;
-  const fase = !corriendo ? 4 : Math.max(0, FASES.indexOf(habla));
+  const estado = estadoAgentes(msgs, corriendo);
+  const etapa = etapaActual(estado, corriendo);
 
   return (
     <>
       <div className="cabeza">
-        <div><h1>Sala de agentes</h1><p>Auditoría {id}, en vivo.</p>
-          <div className="progreso-sala" aria-hidden="true">{FASES.map((f, i) => <i key={f} className={i <= fase ? "on" : ""} />)}</div></div>
+        <div><h1>Sala de agentes</h1><p>Auditoría {id}: los agentes trabajan en pods de Kubernetes y razonan con la IA.</p>
+          <ol className="etapas">{ETAPAS.map((e, i) => (
+            <li key={e} className={i < etapa || (i === 3 && !corriendo) ? "hecha" : i === etapa ? "ahora" : ""}>
+              <span>{i < etapa || (i === 3 && !corriendo) ? <Ico n="check" /> : i + 1}</span>{e}</li>))}
+            <li className="tiempo"><Cronometro desde={todos[0]?.time} hasta={todos[todos.length - 1]?.time} vivo={st.status === "running"} /></li>
+          </ol></div>
         {corriendo ? <span className="vivo-tag"><span className="led ok" />{st.status === "running" ? "En curso" : "Reproduciendo"}</span>
           : <div className="fila"><button className="btn" onClick={() => setMostrados(0)}><Ico n="revertir" />Repetir conversación</button><button className="btn ghost" onClick={() => ir("auditoria", id)}>Ver informe</button></div>}
       </div>
       {err && <div className="alerta">{err}</div>}
       <div className="sala-vivo">
-      <div className="panel grafo-panel"><GrafoAgentes msgs={msgs} corriendo={corriendo} agentes={AGENTES} iconos={ICONOS} /></div>
+      <div className="panel grafo-panel">
+        <MapaVivo msgs={msgs} corriendo={corriendo} agentes={AGENTES} iconos={ICONOS} estado={estado} />
+        <div className={`ahora ${corriendo ? "vivo" : ""}`} style={{ "--a": AGENTES[ultimo?.agent]?.color }}>
+          {corriendo && ultimo && <Avatar a={ultimo.agent} />}
+          <div>
+            <b>{corriendo ? "Ahora" : "Resumen"}</b>
+            <span>{corriendo ? queHace(ultimo) : st.status === "done" ? "Auditoría terminada. Usa “Repetir conversación” para ver el flujo otra vez." : st.status === "failed" ? "La auditoría falló; la conversación explica por qué." : "Cargando…"}</span>
+            {corriendo && ultimo && ["say", "data", "error"].includes(ultimo.kind) && (ultimo.text || ultimo.streaming) && (
+              <p className="dice">{ultimo.streaming && ultimo.text.length > 220 ? `…${ultimo.text.slice(-220)}` : ultimo.text.length > 220 ? `${ultimo.text.slice(0, 220)}…` : ultimo.text || "Pensando…"}
+                {ultimo.streaming && <span className="cursor" />}</p>)}
+          </div>
+        </div>
+      </div>
       <div className="panel sala-chat">
         <h3 className="sala-t">Conversación</h3>
         <div className="chat" aria-live="polite" ref={fondo}>

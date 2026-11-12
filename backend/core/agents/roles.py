@@ -29,6 +29,12 @@ def _razona(chat, agent, title, system, context, fallback):
 def _contexto_red(snap):
     k, p = snap.get("k8s") or {}, snap.get("pf") or {}
     lineas = []
+    if k:   # resumen explicito primero: el modelo pequeño confunde que esta expuesto y que no
+        svcs = k.get("services", [])
+        fuera = [f"{s['name']} (NodePort {', '.join(str(x['nodePort']) for x in s.get('ports', []) if x.get('nodePort'))})"
+                 for s in svcs if any(x.get("nodePort") for x in s.get("ports", []))]
+        dentro = [s["name"] for s in svcs if not any(x.get("nodePort") for x in s.get("ports", []))]
+        lineas.append(f"RESUMEN: expuestos fuera del clúster: {', '.join(fuera) or 'ninguno'}; solo internos: {', '.join(dentro) or 'ninguno'}.")
     if k:
         lineas.append(f"Kubernetes, namespace {k.get('namespace')}: {len(k.get('pods', []))} pods.")
         for s in k.get("services", []):
