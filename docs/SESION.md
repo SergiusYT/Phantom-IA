@@ -1,4 +1,4 @@
-# PHANTOM AI — Estado y continuidad (12-nov-2026)
+# PHANTOM AI — Estado y continuidad (12-nov-2026, fin de la 2.ª sesión)
 
 Documento de traspaso para retomar el trabajo en otra sesión (humano o Claude).
 
@@ -39,6 +39,14 @@ Volver al estado inseguro de demo: `make demo-reset pf-reset`.
 - 4 escenarios de demo verificados de punta a punta, incluido rollback.
 
 - Agentes en Kubernetes (rama `feat/agentes-k8s`): diseño `docs/superpowers/specs/2026-11-12-agentes-en-kubernetes-design.md`, plan `docs/superpowers/plans/2026-11-12-agentes-en-kubernetes.md`. Auditoría normal y con caída simulada verificadas de punta a punta.
+
+## Sesión 2 (rama `feat/agentes-k8s`, 17 commits sobre `main`, sin fusionar)
+- Los 4 agentes son IA híbrida (reglas deciden, mistral razona) y corren como Jobs de Kubernetes.
+- La Sala de agentes es la auditoría en vivo (mapa unificado, etapas, barra "Ahora"); el seguimiento no se reinicia al navegar y hay una burbuja flotante.
+- Registro: diagrama ER rediseñado + tabla "Agentes (pods)". Conectividad: perímetro FreeBSD (puertas por puerto, reglas pfctl) + matriz Kubernetes; se prueba también el 22. Topología: "Probar flujos" animado.
+- Ver en la VM durante una demo: `tail -f /var/log/messages /var/log/auth.log /var/log/phantom-pf.log` y `tcpdump -n -e -ttt -i pflog0`.
+- Estado del laboratorio al cerrar: segmentación aplicada (Web→Datos bloqueado); 8081 abierto y BD NodePort 30082 siguen (2 propuestas pendientes). `make demo-reset pf-reset` vuelve al estado inseguro.
+- Pendiente: decidir si fusionar la rama en `main`, crear PR (falta remoto) o dejarla.
 
 ## Pendiente / opcional
 - Subir a un repositorio remoto privado.
