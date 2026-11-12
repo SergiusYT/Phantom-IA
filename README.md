@@ -2,27 +2,54 @@
 
 Plataforma multiagente para la orquestación inteligente y la seguridad de redes (proyecto de Redes II).
 
-PHANTOM recolecta el estado de un clúster Kubernetes y de un firewall FreeBSD/PF. Tres agentes lo analizan:
+PHANTOM revisa un clúster Kubernetes y un firewall FreeBSD/PF con cuatro agentes de IA. **Kubernetes orquesta a los agentes**: cada uno corre en su propio pod, nace cuando pides una auditoría y desaparece al terminar.
 
+- **Recolector:** lee el clúster (solo lectura, RBAC) y el firewall (llave SSH de solo lectura), y prueba los flujos de red.
 - **Analista:** revisa el estado operativo.
 - **Auditor:** detecta riesgos con reglas deterministas.
-- **Planificador:** propone correcciones y las explica con un LLM local.
+- **Planificador:** propone correcciones y las explica con un LLM local (Ollama `mistral`), que también corre dentro de Kubernetes.
 
 Un **controlador seguro** solo aplica operaciones de una lista permitida. Antes de aplicar exige aprobación humana y guarda un respaldo. Después verifica con pruebas de conectividad y revierte si alguna falla.
 
 ## Arquitectura
 
 ```
-Usuario ─► React (Vite) ─► Django REST ─┬─► PostgreSQL / SQLite
-                                        ├─► Coordinador ─► Analista · Auditor · Planificador ─► Ollama (mistral)
-                                        └─► Controlador seguro ─┬─► kubectl ─► k3d (k3s) · namespace phantom-demo
+Usuario ─► React (Vite) ─► Django REST ─┬─► PostgreSQL
+                                        ├─► Coordinador ──crea Jobs──► Kubernetes (k3d)
+                                        │      ▲                        ├─ phantom-agents: recolector ─► (analista ‖ auditor) ─► planificador
+                                        │      └─ API de agentes ◄──────┤     (un pod por agente; RBAC mínimo; NetworkPolicy default-deny)
+                                        │         172.18.0.1:8001       └─ phantom-ai: Ollama (mistral, CPU) ◄── solo el planificador
+                                        └─► Controlador seguro ─┬─► kubectl ─► namespace phantom-demo (app auditada)
                                                                 └─► SSH forzado ─► FreeBSD /usr/local/sbin/phantom-pf ─► PF anchor "phantom"
 ```
+
+### Dónde corre cada cosa
+
+| Pieza | Dónde | Por qué |
+|---|---|---|
+| Agentes (4) | **Jobs de Kubernetes** en `phantom-agents`, uno por agente y por auditoría | Kubernetes los programa, los reintenta si caen (`backoffLimit: 1`), los mata si se pasan de tiempo y los borra a los 10 min |
+| IA (Ollama + mistral) | **Deployment** en `phantom-ai`, siempre encendido | El modelo queda cargado en memoria; solo los agentes pueden hablarle |
+| Coordinador, controlador, API, BD, panel | Docker Compose en el host | Vigilan y corrigen el clúster desde fuera: si el clúster falla, el que lo vigila sigue vivo |
+| App auditada | `phantom-demo` en Kubernetes | Estado inseguro deliberado |
+
+Aislamiento de los agentes (`infra/k8s/agents.yaml`):
+
+| Agente | Permisos en Kubernetes | Puede hablar con |
+|---|---|---|
+| Recolector | leer pods, services, endpoints, events, networkpolicies, deployments y nodes; `exec` para pruebas | API de agentes, API de Kubernetes, firewall (22, 80, 443, 8081) |
+| Analista, auditor | ninguno (sin token) | API de agentes |
+| Planificador | ninguno (sin token) | API de agentes, Ollama |
+
+Ningún agente puede cambiar nada. La API de agentes solo escucha en la red de k3d, solo sirve `/api/agent/…` y cada auditoría tiene un token efímero que deja de valer al terminar. La llave del firewall de los agentes (`phantom_ro_ed25519`) solo admite consultas; la de escritura la tiene únicamente el controlador.
+
+**Interruptor de la IA.** Por defecto los agentes usan la Ollama del clúster (CPU, ~70 s por explicación). Para usar la del host (GPU), cambia `PHANTOM_AGENT_OLLAMA_URL=http://172.18.0.1:11434` en `.env`, pon `OLLAMA_HOST=0.0.0.0` en el servicio systemd de Ollama del host y permite egress a `172.18.0.1/32:11434` en `allow-ollama` (`infra/k8s/agents.yaml`).
 
 | Componente | Ubicación |
 |---|---|
 | Adaptadores Kubernetes / PF | `backend/core/adapters/` |
-| Agentes y coordinador | `backend/core/agents/` |
+| Agentes: trabajo de cada rol, coordinador, orquestador de Jobs, entrypoint del pod | `backend/core/agents/` (`roles.py`, `coordinator.py`, `orchestrator.py`, `runner.py`) |
+| API de agentes (solo para los pods) | `backend/core/agent_api.py`, `backend/phantom/agent_urls.py` |
+| Agentes e IA en Kubernetes | `infra/k8s/agents.yaml`, `infra/k8s/ollama.yaml`, `infra/docker/ollama.Dockerfile` |
 | Controlador seguro (lista permitida, respaldo, verificación, reversión) | `backend/core/controller.py` |
 | Pruebas de conectividad | `backend/core/connectivity.py` |
 | API REST | `backend/core/views.py`, `backend/core/urls.py` |
@@ -52,9 +79,11 @@ El firewall es la puerta de entrada de la aplicación (`infra/freebsd/pf.conf`).
 ## Secciones del panel
 
 - **Orquestación en vivo:** se actualiza cada 2 s. Muestra el host Docker, los contenedores que hacen de nodos k3d y los pods dentro de cada nodo, con CPU y RAM de metrics-server y los eventos del clúster. Un operador puede escalar un deployment (de 0 a 5 réplicas) o eliminar un pod para mostrar cómo Kubernetes lo recrea. Ambas acciones quedan en el registro.
-- **Sala de agentes:** la auditoría corre en segundo plano y cada paso real se publica como un mensaje entre coordinador, recolector, analista, auditor y planificador. La explicación del modelo local se escribe en streaming.
+- **Orquestación en vivo, zona "Agentes IA":** una tarjeta por agente con el estado de su pod (dormido, naciendo, trabajando, terminó, cayó) y el nodo donde Kubernetes lo programó, más la IA. Los pods de los agentes aparecen dentro de cada nodo.
+- **Sala de agentes:** cada mensaje sale del pod de su agente. El coordinador narra lo que hace Kubernetes (crea el Job, lo programa en un nodo, el pod cae y se reintenta). La explicación del modelo local se escribe en streaming.
+- **Simular la caída de un agente** (solo operadores, bajo "Iniciar auditoría"): el primer pod del agente elegido falla a propósito y Kubernetes lo levanta otra vez; la Sala marca el intento fallido.
 - **Registro:** diagrama entidad-relación generado del esquema real (tablas, columnas, llaves y relaciones). Al tocar una tabla se consultan sus registros con búsqueda y filtros. Es de solo lectura y no expone contraseñas ni tokens.
-- Panel general, Topología (vistas Aplicación y Gestión PHANTOM), Conectividad, Auditorías y Propuestas.
+- Panel general, Topología (vistas Aplicación y Agentes y gestión, con el estado en vivo de cada pod de agente), Conectividad, Auditorías y Propuestas.
 
 El backend lee Docker a través de `docker-socket-proxy`, que solo permite `GET /containers`. Nunca recibe el socket de Docker, porque eso equivale a tener root en el host.
 
@@ -78,13 +107,16 @@ Usuarios de demostración (se crean con `seed_users`):
 | `admin` | `phantom-admin` | operador: aprueba y ejecuta |
 | `observador` | `phantom-viewer` | solo consulta |
 
-Para producción de laboratorio con PostgreSQL: `cp .env.example .env`, ajusta los valores y corre `make compose-up`. El panel queda en http://localhost:8088.
+Para producción de laboratorio con PostgreSQL: `cp .env.example .env`, ajusta los valores y corre **`make up`**. El panel queda en http://localhost:8088.
+
+`make up` (`bin/phantom-up`) revisa y repara en orden: módulos y red de VMware, VM FreeBSD, clúster k3d, DNS del clúster, sincronización de NetworkPolicy, imágenes de agentes e IA (sin descargar nada: Ollama se construye desde el binario del host y el modelo se copia al nodo), manifiestos, Docker Compose y una prueba por el firewall. Solo pide sudo si VMware necesita arreglo. Para que VMware no falle tras actualizar el kernel: `sudo infra/host/vmware-autofix.sh` (una vez).
 
 ## Guion de la demostración (sección 9 de la propuesta)
 
 1. **Panel:** db expuesta como NodePort, política `allow-all` y PF con el puerto 8081 abierto.
 2. **Conectividad, Ejecutar pruebas:** `fe-db` es alcanzable (✗) y `8081` es alcanzable (✗).
-3. **Iniciar auditoría:** hallazgos `SEC-K8S-002`, `SEC-K8S-004`, `SEC-PF-002` y `SEC-NET-001`, con 3 propuestas.
+3. **Iniciar auditoría** con **Orquestación en vivo** abierta: Kubernetes crea el pod del recolector, luego los del analista y el auditor a la vez, y al final el del planificador. Hallazgos `SEC-K8S-002`, `SEC-K8S-004`, `SEC-PF-002` y `SEC-NET-001`, con 3 propuestas.
+   - Opcional: **Simular la caída del auditor** para ver a Kubernetes reintentar el pod.
 4. En cada propuesta: revisar la vista previa y la explicación, **Aprobar** y luego **Ejecutar**. Se muestran las pruebas antes y después.
 5. **Topología:** los flujos prohibidos aparecen bloqueados y los legítimos en verde.
 6. **Registro:** quién aprobó y ejecutó qué, cuándo y con qué resultado.

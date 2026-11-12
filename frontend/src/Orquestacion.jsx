@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Busy, Ico } from "./ui.jsx";
-import AgentesK8s from "./AgentesK8s.jsx";
+import AgentesK8s, { ultimaAuditoria } from "./AgentesK8s.jsx";
 import { AGENTES } from "./Sala.jsx";
 import { APP_NOMBRE, APP_TECH, Tech } from "./tech.jsx";
 
@@ -143,7 +143,8 @@ export default function Orquestacion({ user, aviso }) {
               <AgentesK8s agents={k.agents} ai={k.ai} />
               <div className="nodos2">
                 {nodos.map((n) => {
-                  const pods = [...k.pods, ...(k.ai?.pods || []), ...(k.agents?.pods || [])].filter((p) => p.node === n.name);
+                  const ult = ultimaAuditoria(k.agents);   // solo los pods de agentes de la ultima auditoria
+                  const pods = [...k.pods, ...(k.ai?.pods || []), ...(k.agents?.pods || []).filter((p) => Number(p.audit) === ult)].filter((p) => p.node === n.name);
                   return (
                     <div className="nodo2" key={n.name}>
                       <div className="nodo2-t">
