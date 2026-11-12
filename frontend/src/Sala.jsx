@@ -6,10 +6,10 @@ import { Tech } from "./tech.jsx";
 
 export const AGENTES = {
   coordinador: { nombre: "Coordinador", rol: "Reparte el trabajo y cierra la auditoría", color: "#6CD4FF", ico: "director" },
-  recolector: { nombre: "Recolector", rol: "Lee Kubernetes, el firewall y prueba los flujos", color: "#3CF5A2", ico: "antena" },
-  analista: { nombre: "Analista de red", rol: "Busca fallos de operación", color: "#C3A6FF", ico: "pulso" },
-  auditor: { nombre: "Auditor de seguridad", rol: "Compara contra las reglas", color: "#FF8A3D", ico: "lupa" },
-  planificador: { nombre: "Planificador", rol: "Propone correcciones con el modelo local", color: "#FFD25C", ico: "plano" },
+  recolector: { nombre: "Recolector", rol: "Lee Kubernetes y el firewall, prueba los flujos e interpreta la red con IA", color: "#3CF5A2", ico: "antena" },
+  analista: { nombre: "Analista de red", rol: "Detecta fallos con reglas y los diagnostica con IA", color: "#C3A6FF", ico: "pulso" },
+  auditor: { nombre: "Auditor de seguridad", rol: "Detecta riesgos con reglas y los evalúa y prioriza con IA", color: "#FF8A3D", ico: "lupa" },
+  planificador: { nombre: "Planificador", rol: "Propone correcciones con reglas y las explica con IA", color: "#FFD25C", ico: "plano" },
   operador: { nombre: "Tú", rol: "Apruebas o rechazas cada cambio", color: "#F2FFF8", ico: "usuario" },
 };
 const COLOR_SEV = { critical: "#FF4D5E", high: "#FF8A3D", medium: "#FFD25C", low: "#6CD4FF", info: "#8FB3A2" };
@@ -62,8 +62,9 @@ function Contenido({ m, ir }) {
       </div>
     </div>);
   return (
-    <div className="burbuja" style={{ "--a": AGENTES[m.agent]?.color }}>
-      {m.streaming && p.title && <div className="tenue" style={{ marginBottom: 6 }}>Explicando: {p.title}</div>}
+    <div className={`burbuja ${p.ai ? "ia" : ""}`} style={{ "--a": AGENTES[m.agent]?.color }}>
+      {p.ai && <div className="ia-tag"><Tech n="ollama" size={14} />IA · {p.title}</div>}
+      {!p.ai && m.streaming && p.title && <div className="tenue" style={{ marginBottom: 6 }}>Explicando: {p.title}</div>}
       {m.text}{m.streaming && <span className="cursor" />}
     </div>);
 }

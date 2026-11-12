@@ -44,6 +44,8 @@ def main(argv=None):
                  crash=True)
         return 3
     inp = job["input"]
+    if not wait_for_llm():   # la regla de red hacia la IA tarda unos segundos en aplicarse al pod nuevo
+        chat.say(role, "No alcanzo la IA del clúster; razonaré con texto de plantilla.", kind="error")
     try:
         if role == "recolector":
             out = roles.run_recolector(chat)
@@ -52,8 +54,6 @@ def main(argv=None):
         elif role == "auditor":
             out = roles.run_auditor(chat, inp["snapshot"], inp["allowed_ports"])
         else:
-            if not wait_for_llm():
-                chat.say(role, "No alcanzo la IA del clúster; uso explicaciones de plantilla.", kind="error")
             out = roles.run_planificador(chat, inp["snapshot"], inp["findings"])
     except Exception as exc:  # noqa: BLE001 - se informa en la Sala y Kubernetes reintenta
         try:

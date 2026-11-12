@@ -4,10 +4,14 @@ Plataforma multiagente para la orquestación inteligente y la seguridad de redes
 
 PHANTOM revisa un clúster Kubernetes y un firewall FreeBSD/PF con cuatro agentes de IA. **Kubernetes orquesta a los agentes**: cada uno corre en su propio pod, nace cuando pides una auditoría y desaparece al terminar.
 
-- **Recolector:** lee el clúster (solo lectura, RBAC) y el firewall (llave SSH de solo lectura), y prueba los flujos de red.
-- **Analista:** revisa el estado operativo.
-- **Auditor:** detecta riesgos con reglas deterministas.
-- **Planificador:** propone correcciones y las explica con un LLM local (Ollama `mistral`), que también corre dentro de Kubernetes.
+Los cuatro son agentes de **IA híbrida**: reglas fijas detectan y deciden; el modelo local (Ollama `mistral`, dentro del clúster) razona y explica. Lo que diga la IA nunca cambia un hallazgo ni una corrección (hay una prueba que lo garantiza: si la IA responde algo absurdo, los resultados son idénticos).
+
+| Agente | Reglas fijas (deciden) | IA (razona y explica) |
+|---|---|---|
+| Recolector | Lee el clúster (RBAC de solo lectura) y el firewall (llave SSH de solo lectura); prueba los flujos de red | Interpreta la red: por dónde entra el tráfico, qué está expuesto, qué responde |
+| Analista | Detecta fallos operativos (pods caídos, reinicios, servicios sin endpoints) | Diagnostica la causa probable y a qué servicio afecta |
+| Auditor | Detecta riesgos de seguridad (`SEC-K8S-*`, `SEC-PF-*`, `SEC-NET-*`) | Explica cómo se aprovecharía cada riesgo y en qué orden corregirlos |
+| Planificador | Arma las correcciones con operaciones permitidas | Explica por qué cada cambio corrige el riesgo y cómo se verifica |
 
 Un **controlador seguro** solo aplica operaciones de una lista permitida. Antes de aplicar exige aprobación humana y guarda un respaldo. Después verifica con pruebas de conectividad y revierte si alguna falla.
 
@@ -36,13 +40,14 @@ Aislamiento de los agentes (`infra/k8s/agents.yaml`):
 
 | Agente | Permisos en Kubernetes | Puede hablar con |
 |---|---|---|
-| Recolector | leer pods, services, endpoints, events, networkpolicies, deployments y nodes; `exec` para pruebas | API de agentes, API de Kubernetes, firewall (22, 80, 443, 8081) |
-| Analista, auditor | ninguno (sin token) | API de agentes |
-| Planificador | ninguno (sin token) | API de agentes, Ollama |
+| Recolector | leer pods, services, endpoints, events, networkpolicies, deployments y nodes; `exec` para pruebas | API de agentes, Ollama, API de Kubernetes, firewall (22, 80, 443, 8081) |
+| Analista, auditor, planificador | ninguno (sin token) | API de agentes, Ollama |
+
+Todos los agentes pueden hablar con Ollama; el recolector además con Kubernetes y el firewall.
 
 Ningún agente puede cambiar nada. La API de agentes solo escucha en la red de k3d, solo sirve `/api/agent/…` y cada auditoría tiene un token efímero que deja de valer al terminar. La llave del firewall de los agentes (`phantom_ro_ed25519`) solo admite consultas; la de escritura la tiene únicamente el controlador.
 
-**Interruptor de la IA.** Por defecto los agentes usan la Ollama del clúster (CPU, ~70 s por explicación). Para usar la del host (GPU), cambia `PHANTOM_AGENT_OLLAMA_URL=http://172.18.0.1:11434` en `.env`, pon `OLLAMA_HOST=0.0.0.0` en el servicio systemd de Ollama del host y permite egress a `172.18.0.1/32:11434` en `allow-ollama` (`infra/k8s/agents.yaml`).
+**Interruptor de la IA.** Por defecto los agentes usan la Ollama del clúster (CPU, ~70 s por respuesta; una auditoría completa tarda ~7-8 min). Para usar la del host (GPU), cambia `PHANTOM_AGENT_OLLAMA_URL=http://172.18.0.1:11434` en `.env`, pon `OLLAMA_HOST=0.0.0.0` en el servicio systemd de Ollama del host y permite egress a `172.18.0.1/32:11434` en `allow-ollama` (`infra/k8s/agents.yaml`).
 
 | Componente | Ubicación |
 |---|---|

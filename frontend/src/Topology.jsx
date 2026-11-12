@@ -183,8 +183,10 @@ function VistaGestion({ sel, onSel, orq }) {
       {/* recolector: lectura del firewall y de la app auditada */}
       <Linea d={`M${KX + 105},${AY.recolector - 8} C880,${AY.recolector - 8} 880,95 905,95`} color={vivo("recolector") ? VERDE : GRIS} paquete={vivo("recolector")} etiqueta="SSH solo lectura" lx={890} ly={AY.recolector - 22} anchor="end" />
       <Linea d={`M${KX + 105},${AY.recolector + 8} C880,${AY.recolector + 8} 880,235 905,235`} color={vivo("recolector") ? VERDE : GRIS} paquete={vivo("recolector")} etiqueta="lee (RBAC)" lx={872} ly={170} anchor="middle" />
-      {/* planificador -> IA */}
-      <Linea d={`M${KX},${AY.planificador + 24} L${KX},466`} color={vivo("planificador") ? AGENTES.planificador.color : GRIS} paquete={vivo("planificador")} etiqueta="pregunta a la IA" lx={KX + 10} ly={418} anchor="start" />
+      {/* todos los agentes razonan con la IA (las decisiones salen de reglas fijas) */}
+      {ROLES.map((r) => <Linea key={`ia-${r}`} d={`M${KX + 105},${AY[r] + 14} C828,${AY[r] + 14} 828,490 ${KX + 105},490`}
+        color={vivo(r) ? AGENTES[r].color : "#2A4A3A"} paquete={vivo(r)} grueso={vivo(r) ? 2.2 : 1.2} />)}
+      <text x="836" y="416" textAnchor="end" fill="#8FB3A2" fontSize="11.5" fontFamily="Instrument Sans">razonan con la IA</text>
       {/* controlador: unico que cambia algo, y solo con aprobacion */}
       <Linea d="M445,165 L445,20 L980,20 L980,62" color={VERDE} dash="2 5" etiqueta="controlador: solo cambios aprobados" lx={700} ly={14} />
       <Linea d="M980,128 L980,205" color={VERDE} dash="2 5" />
@@ -217,7 +219,7 @@ function VistaGestion({ sel, onSel, orq }) {
               <text y="4" textAnchor="middle" fontSize="10.5" fill={ROJO} fontFamily="JetBrains Mono">{`cayó ×${c}`}</text></g>}
           </g>);
       })}
-      <Caja id="g-ollama" x={KX} y={490} w={210} tech="ollama" titulo="IA local" sub={ai?.ready ? "Mistral, siempre encendida" : "no disponible"} alerta={ai && !ai.ready} sel={sel} onSel={onSel} />
+      <Caja id="g-ollama" x={KX} y={490} w={210} tech="ollama" titulo="IA local" sub={ai?.ready ? "Mistral, la usan los 4" : "no disponible"} alerta={ai && !ai.ready} sel={sel} onSel={onSel} />
 
       {/* sistemas que se auditan */}
       <Caja id="g-freebsd" x={980} y={95} w={170} h={66} tech="freebsd" titulo="Firewall" sub="FreeBSD PF" candado sel={sel} onSel={onSel} />
@@ -248,7 +250,7 @@ function Ficha({ sel, topo, orq }) {
     "g-postgres": ["Base de datos", "Guarda auditorías, hallazgos, propuestas y el registro de actividad.", [["Motor", "PostgreSQL 16"]]],
     "g-kubernetes": ["API de Kubernetes", "Por aquí PHANTOM consulta el estado del clúster y aplica cambios en el espacio de laboratorio.", [["Espacio", topo?.namespace]]],
     "g-freebsd": ["Firewall por SSH", "Dos llaves, cada una forzada al programa phantom-pf: la del recolector solo puede consultar; la del controlador puede bloquear o desbloquear puertos, y solo tras tu aprobación.", [["Recolector", "solo lectura"], ["Controlador", "cambios aprobados"]]],
-    "g-ollama": ["IA local", "El modelo Mistral corre en un pod de Kubernetes y queda cargado en memoria. Redacta las explicaciones; las reglas de seguridad no dependen de él. Solo los agentes pueden hablarle.", [["Modelo", "mistral"], ["Namespace", "phantom-ai"], ["Pod", orq?.kubernetes?.ai?.pods?.[0]?.name]]],
+    "g-ollama": ["IA local", "El modelo Mistral corre en un pod de Kubernetes y queda cargado en memoria. Los cuatro agentes razonan con él: el recolector interpreta la red, el analista diagnostica, el auditor prioriza riesgos y el planificador explica sus propuestas. Lo que dice la IA nunca cambia un hallazgo ni un cambio: eso lo deciden reglas fijas. Solo los agentes pueden hablarle.", [["Modelo", "mistral"], ["Namespace", "phantom-ai"], ["Pod", orq?.kubernetes?.ai?.pods?.[0]?.name]]],
     "g-docker": ["Proxy de Docker", "Deja ver qué contenedores corren, pero no permite crear ni detener ninguno.", [["Permite", "solo listar contenedores"]]],
   };
   ["frontend", "api", "db"].forEach((a) => {
@@ -262,7 +264,7 @@ function Ficha({ sel, topo, orq }) {
   ROLES.forEach((r) => {
     const j = (ag?.jobs || []).find((x) => x.agent === r && Number(x.audit) === aud);
     const ps = (ag?.pods || []).filter((p) => p.agent === r && Number(p.audit) === aud);
-    F[`ag-${r}`] = [`Agente: ${AGENTES[r].nombre}`, `${AGENTES[r].rol}. Kubernetes lo crea como un Job cuando pides una auditoría, lo reintenta si su pod cae y lo borra a los 10 minutos.`,
+    F[`ag-${r}`] = [`Agente: ${AGENTES[r].nombre}`, `${AGENTES[r].rol}. Las reglas deciden; la IA razona y explica. Kubernetes lo crea como un Job cuando pides una auditoría, lo reintenta si su pod cae y lo borra a los 10 minutos.`,
       [["Última auditoría", aud ?? "—"], ["Estado", j ? FASE_TXT[j.phase] || j.phase : "dormido"], ["Pods", ps.map((p) => `${p.name.split("-").pop()} (${p.state})`).join(", ") || "—"],
        ["Nodo", ps.at(-1)?.node], ["Reintentos", j?.failed ?? 0]]];
   });

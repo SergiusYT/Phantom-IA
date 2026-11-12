@@ -26,7 +26,7 @@ function Tarjeta({ rol, job, pods }) {
     <div className={`agente-k ${tono}`} style={{ "--a": ag.color }}>
       <span className="agente-ico"><Ico n={ag.ico} /></span>
       <div>
-        <b>{ag.nombre}</b>
+        <b>{ag.nombre}<em className="ia-mini">IA</em></b>
         <span><i className={`led ${tono === "zz" || tono === "fin" ? "" : tono}`} />{txt}</span>
       </div>
       {(actual || caidos.length > 0) && (

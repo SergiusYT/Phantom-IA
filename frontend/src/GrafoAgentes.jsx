@@ -17,9 +17,10 @@ const N = {
 const ARISTAS = [
   ["coordinador", "recolector"], ["coordinador", "analista"], ["coordinador", "auditor"], ["coordinador", "planificador"],
   ["recolector", "kubernetes"], ["recolector", "freebsd"], ["auditor", "planificador"], ["planificador", "ollama"],
+  ["recolector", "ollama"], ["analista", "ollama"], ["auditor", "ollama"],
   ["planificador", "operador"], ["coordinador", "operador"],
 ];
-const SISTEMA = { kubernetes: "Kubernetes", freebsd: "FreeBSD", ollama: "Modelo local" };
+const SISTEMA = { kubernetes: "Kubernetes", freebsd: "FreeBSD", ollama: "IA (mistral)" };
 
 // Que arista representa un mensaje
 function aristaDe(m) {
@@ -32,7 +33,7 @@ function aristaDe(m) {
     if (/Kubernetes|nodos|pods/i.test(t)) return ["recolector", "kubernetes"];
     return ["recolector", "coordinador"];
   }
-  if (m.agent === "planificador" && m.streaming) return ["ollama", "planificador"];
+  if (m.streaming && (m.payload?.ai || m.agent === "planificador") && N[m.agent]) return ["ollama", m.agent];
   if (m.agent === "planificador" && m.kind === "proposal") return ["planificador", "operador"];
   if (m.kind === "done") return ["coordinador", "operador"];
   if (m.to && N[m.to]) return [m.agent, m.to];

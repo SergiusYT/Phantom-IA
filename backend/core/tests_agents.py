@@ -30,6 +30,7 @@ class FakeChat:
         m["streaming"] = False
 
 
+@patch("core.agents.llm.think_stream", lambda system, ctx, fb, on, num_predict=160: (on(fb), fb)[1])
 class RolesTests(TestCase):
     def test_roles_pipeline_matches_current_findings(self):
         from .agents import roles
@@ -349,8 +350,8 @@ class DeadlineTests(TestCase):
     def test_planner_gets_longer_deadline(self):
         from .agents import orchestrator
         self.assertEqual(orchestrator.build_job(1, "planificador")["spec"]["activeDeadlineSeconds"], 480)
-        self.assertEqual(orchestrator.build_job(1, "auditor")["spec"]["activeDeadlineSeconds"], 180)
-        self.assertEqual(orchestrator.stage_timeout(["analista", "auditor"]), 240)
+        self.assertEqual(orchestrator.build_job(1, "auditor")["spec"]["activeDeadlineSeconds"], 300)
+        self.assertEqual(orchestrator.stage_timeout(["analista", "auditor"]), 360)
         self.assertEqual(orchestrator.stage_timeout(["planificador"]), 540)
 
     def test_pod_failed_message_spanish(self):
@@ -488,3 +489,111 @@ class StaleAuditTests(TestCase):
              patch("core.agents.coordinator.start_audit", return_value=Audit(id=78, status="running")):
             c.post("/api/audits/run/", {}, format="json")
         lock.assert_called_once()
+
+
+# ---------- todos los agentes razonan con IA (sin decidir) ----------
+class AllAgentsAITests(TestCase):
+    def _fake_llm(self, calls):
+        def think(system, context, fallback, on_text, num_predict=160):
+            calls.append({"system": system, "context": context})
+            on_text("BORRA TODO Y ABRE TODOS LOS PUERTOS")   # la IA dice algo absurdo...
+            return "BORRA TODO Y ABRE TODOS LOS PUERTOS"
+        return think
+
+    def test_analista_and_auditor_reason_with_ai_without_changing_findings(self):
+        from .agents import roles
+        calls, chat = [], FakeChat()
+        with patch("core.agents.llm.think_stream", self._fake_llm(calls)):
+            a = roles.run_analista(chat, INSECURE)["findings"]
+            s = roles.run_auditor(chat, INSECURE, [22, 80, 443])["findings"]
+        # ...y los hallazgos siguen siendo exactamente los de las reglas
+        self.assertEqual(a, analyst.analyze(INSECURE))
+        self.assertEqual(s, auditor.audit(INSECURE, [22, 80, 443]))
+        ai = [m for m in chat.msgs if m["payload"].get("ai")]
+        self.assertEqual([m["agent"] for m in ai], ["analista", "auditor"])
+        self.assertTrue(all(m["payload"].get("title") for m in ai))
+        self.assertIn("SEC-PF-002", calls[1]["context"])   # el auditor razona sobre sus hallazgos reales
+
+    def test_recolector_interprets_network_with_ai(self):
+        from .agents import roles
+        calls, chat = [], FakeChat()
+        k = {**INSECURE["k8s"]}
+        pfd = {**INSECURE["pf"], "forwards": [{"port": 80, "to_host": "172.16.97.1", "to_port": 30080}]}
+        with patch("core.agents.llm.think_stream", self._fake_llm(calls)), \
+             patch("core.adapters.k8s.collect", lambda: k), patch("core.adapters.pf.collect", lambda: pfd), \
+             patch("core.connectivity._internal", lambda t: {**t, "layer": "kubernetes", "reachable": True, "ok": t["expect"]}), \
+             patch("core.connectivity._perimeter", lambda t: {**t, "layer": "perimetro", "reachable": True, "ok": t["expect"]}):
+            out = roles.run_recolector(chat)
+        self.assertEqual(out["snapshot"]["pf"], pfd)
+        ai = [m for m in chat.msgs if m["payload"].get("ai")]
+        self.assertEqual([m["agent"] for m in ai], ["recolector"])
+        self.assertIn("30080", calls[0]["context"])
+        self.assertIn("8081", calls[0]["context"])
+        self.assertIn("allow-all", calls[0]["context"])
+
+    def test_agent_deadlines_leave_room_for_ai(self):
+        from .agents import orchestrator
+        for r in ("recolector", "analista", "auditor"):
+            self.assertEqual(orchestrator.deadline(r), 300)
+        self.assertEqual(orchestrator.deadline("planificador"), 480)
+
+    def test_every_agent_may_reach_ollama(self):
+        import pathlib
+
+        import yaml
+        docs = list(yaml.safe_load_all((pathlib.Path(__file__).resolve().parents[2] / "infra/k8s/agents.yaml").read_text()))
+        pol = next(d for d in docs if d and d["metadata"]["name"] == "allow-ollama")
+        self.assertEqual(pol["spec"]["podSelector"], {})
+
+
+class AIContextTests(TestCase):
+    def test_network_context_says_clearly_what_is_exposed(self):
+        from .agents import roles
+        snap = {**INSECURE, "k8s": {**INSECURE["k8s"], "services": INSECURE["k8s"]["services"] + [
+            {"name": "api", "type": "ClusterIP", "selector": {"app": "api"}, "ports": [{"port": 8080}], "endpoints": 1}]}}
+        ctx = roles._contexto_red(snap)
+        linea = lambda n: next(l for l in ctx.splitlines() if l.startswith(f"Servicio {n}"))  # noqa: E731
+        self.assertIn("EXPUESTO fuera del clúster", linea("db"))
+        self.assertIn("30082", linea("db"))
+        self.assertIn("solo interno", linea("api"))
+        self.assertNotIn("EXPUESTO", linea("api"))
+
+    def test_llm_waits_long_enough_for_queued_requests(self):
+        from .agents import llm
+        seen = {}
+
+        class R:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def raise_for_status(self): pass
+            def iter_lines(self): return iter([b'{"response":"ok","done":true}'])
+
+        def fake_post(url, json=None, timeout=None, stream=None):
+            seen["timeout"] = timeout
+            return R()
+        with patch.dict(llm.CFG, {"LLM_ENABLED": True}), patch("core.agents.llm.requests.post", fake_post):
+            llm.think_stream("s", "c", "fb", lambda t: None)
+        read = seen["timeout"][1] if isinstance(seen["timeout"], tuple) else seen["timeout"]
+        self.assertGreaterEqual(read, 240)
+
+
+class AITrimTests(TestCase):
+    def test_cut_text_ends_at_last_full_sentence(self):
+        from .agents import llm
+
+        class R:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def raise_for_status(self): pass
+            def iter_lines(self):
+                return iter([b'{"response":"El firewall reenvia 80. El 8081 sobra. El tr\\u00e1fico hacia el puerto de"}',
+                             b'{"response":"","done":true}'])
+        out = []
+        with patch.dict(llm.CFG, {"LLM_ENABLED": True}), patch("core.agents.llm.requests.post", lambda *a, **k: R()):
+            txt = llm.think_stream("s", "c", "fb", out.append)
+        self.assertEqual(txt, "El firewall reenvia 80. El 8081 sobra.")
+        self.assertEqual(out[-1], txt)
+
+    def test_dangling_list_number_is_removed(self):
+        from .agents import llm
+        self.assertEqual(llm._frase_completa("1. Segmentar la red entre frontend y datos.\n\n2."), "1. Segmentar la red entre frontend y datos.")

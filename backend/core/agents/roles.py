@@ -18,6 +18,43 @@ def _plural(n, uno, varios):
     return f"{n} {uno if n == 1 else varios}"
 
 
+def _razona(chat, agent, title, system, context, fallback):
+    """El agente piensa en voz alta con la IA. El texto se muestra; no altera ningun resultado."""
+    m, update = chat.stream(agent, ai=True, title=title)
+    texto = llm.think_stream(system, context, fallback, update)
+    chat.end_stream(m)
+    return texto
+
+
+def _contexto_red(snap):
+    k, p = snap.get("k8s") or {}, snap.get("pf") or {}
+    lineas = []
+    if k:
+        lineas.append(f"Kubernetes, namespace {k.get('namespace')}: {len(k.get('pods', []))} pods.")
+        for s in k.get("services", []):
+            nps = [x["nodePort"] for x in s.get("ports", []) if x.get("nodePort")]
+            puertos = ", ".join(str(x.get("port")) for x in s.get("ports", []))
+            alcance = (f"EXPUESTO fuera del clúster en el NodePort {', '.join(map(str, nps))} del host (no pasa por el firewall)"
+                       if nps else "solo interno (ClusterIP), no accesible desde fuera")
+            lineas.append(f"Servicio {s['name']}: puerto {puertos}; {alcance}; {s.get('endpoints')} endpoints.")
+        lineas.append("NetworkPolicies: " + (", ".join(n["name"] for n in k.get("network_policies", [])) or "ninguna") + ".")
+    if p and not p.get("error"):
+        fw = ", ".join(f"{f['port']}->{f['to_host']}:{f['to_port']}" for f in p.get("forwards", [])) or "ninguno"
+        lineas.append(f"Firewall PF {'activo' if p.get('enabled') else 'inactivo'} en {p.get('host')}. Reenvíos: {fw}. "
+                      f"Puertos en escucha: {', '.join(map(str, p.get('listening', [])))}. Puertos autorizados: "
+                      f"{', '.join(map(str, p.get('allowed_ports', [])))}.")
+    elif p.get("error"):
+        lineas.append(f"El firewall no respondió: {p['error']}.")
+    for t in snap.get("connectivity", []):
+        estado = "responde" if t.get("reachable") else ("error" if t.get("reachable") is None else "bloqueado")
+        lineas.append(f"Prueba {t['name']}: {estado} (debe {'pasar' if t.get('expect') else 'estar bloqueado'}).")
+    return "\n".join(lineas)
+
+
+def _contexto_hallazgos(found):
+    return "\n".join(f"[{f['rule_id']}] ({f['severity']}) {f['title']}: {f['description']}" for f in found) or "Sin hallazgos."
+
+
 def run_recolector(chat):
     snap, errors = {"k8s": None, "pf": None, "connectivity": []}, []
     chat.say("recolector", f"Consulto la API de Kubernetes en el namespace {settings.PHANTOM['NAMESPACE']}.")
@@ -60,6 +97,8 @@ def run_recolector(chat):
             snap["connectivity"].append(r)
             estado = "responde" if r["reachable"] else ("error" if r["reachable"] is None else "bloqueado")
             chat.say("recolector", f"{r['name']}: {estado}.", kind="test", test=r)
+    _razona(chat, "recolector", "Interpretación de la red", llm.SYSTEM_RECOLECTOR, _contexto_red(snap),
+            "Recolección terminada: los datos del clúster, del firewall y de las pruebas quedan disponibles para el análisis.")
     return {"snapshot": snap, "errors": errors}
 
 
@@ -71,6 +110,9 @@ def run_analista(chat, snapshot):
     else:
         chat.say("analista", "Todo opera con normalidad: los pods están listos, los servicios tienen endpoints y "
                  "los flujos legítimos responden.")
+    _razona(chat, "analista", "Diagnóstico", llm.SYSTEM_ANALISTA,
+            _contexto_red(snapshot) + "\nFallos detectados por las reglas:\n" + _contexto_hallazgos(found),
+            "Diagnóstico basado en las reglas: " + (f"{_plural(len(found), 'fallo operativo', 'fallos operativos')}." if found else "sin fallos operativos."))
     return {"findings": found}
 
 
@@ -82,6 +124,9 @@ def run_auditor(chat, snapshot, allowed_ports):
             chat.say("auditor", f["description"], kind="finding", to="planificador", finding=f)
     else:
         chat.say("auditor", "La configuración cumple todas las reglas definidas. No hay riesgos que reportar.")
+    if found:
+        _razona(chat, "auditor", "Evaluación de riesgos y prioridad", llm.SYSTEM_AUDITOR, _contexto_hallazgos(found),
+                "Prioridad según severidad: " + ", ".join(f"{f['rule_id']} ({f['severity']})" for f in found) + ".")
     return {"findings": found}
 
 

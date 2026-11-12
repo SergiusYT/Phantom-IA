@@ -11,9 +11,9 @@ from django.conf import settings
 from ..adapters import k8s
 
 POLL = 1.0
-# El planificador escribe con el LLM en CPU (~70 s por propuesta): necesita mas tiempo.
+# Todos razonan con el LLM en CPU (~30-70 s por respuesta); el planificador escribe una por propuesta.
 DEADLINE = {"planificador": 480}
-DEFAULT_DEADLINE = 180
+DEFAULT_DEADLINE = 300
 
 
 def deadline(role):
