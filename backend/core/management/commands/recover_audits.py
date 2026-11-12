@@ -2,6 +2,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from core.agents import orchestrator
 from core.models import Audit, AuditMessage
 
 
@@ -17,6 +18,11 @@ class Command(BaseCommand):
                                         text="La auditoría se interrumpió porque el servidor se reinició. Inicia una nueva.")
             a.status, a.finished_at = Audit.Status.FAILED, timezone.now()
             a.errors = [*(a.errors or []), "interrumpida por reinicio del servidor"]
+            a.agent_token = ""
             a.save()
+            try:
+                orchestrator.purge(a.id)   # los pods de esa auditoria ya no tienen a quien reportar
+            except Exception:  # noqa: BLE001 - sin cluster no hay nada que limpiar
+                pass
             n += 1
         self.stdout.write(f"auditorias recuperadas: {n}")

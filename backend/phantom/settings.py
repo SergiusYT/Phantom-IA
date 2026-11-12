@@ -116,4 +116,11 @@ PHANTOM = {
     "OLLAMA_MODEL": env("PHANTOM_OLLAMA_MODEL", "mistral"),
     "LLM_ENABLED": env("PHANTOM_LLM", "1") == "1",
     "DOCKER_URL": env("PHANTOM_DOCKER_URL", "http://127.0.0.1:2375"),
+    # Agentes orquestados por Kubernetes ("local" solo para pruebas: corre los agentes en el backend)
+    "AGENTS_MODE": env("PHANTOM_AGENTS_MODE", "k8s"),
+    "AGENTS_NAMESPACE": env("PHANTOM_AGENTS_NAMESPACE", "phantom-agents"),
+    "AGENT_IMAGE": env("PHANTOM_AGENT_IMAGE", "phantom-agent:dev"),
+    "AGENT_API_URL": env("PHANTOM_AGENT_API", "http://172.18.0.1:8001"),
+    "AGENT_OLLAMA_URL": env("PHANTOM_AGENT_OLLAMA_URL", "http://ollama.phantom-ai:11434"),
+    "JOB_TIMEOUT": int(env("PHANTOM_JOB_TIMEOUT", "240")),
 }

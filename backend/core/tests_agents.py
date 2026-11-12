@@ -163,3 +163,166 @@ class TokenNotExposedTests(TestCase):
         self.assertNotIn("agent_token", body)
         self.assertNotIn(TOKEN, str(body))
         self.assertNotIn("agent_token", str(insights.schema()))
+
+
+from django.contrib.auth.models import Group, User  # noqa: E402
+
+
+def _k8s_settings(**extra):
+    from django.conf import settings as s
+    return override_settings(PHANTOM={**s.PHANTOM, "AGENTS_MODE": "k8s", **extra})
+
+
+class OrchestratorManifestTests(TestCase):
+    def test_job_manifest_security(self):
+        from .agents import orchestrator
+        an = orchestrator.build_job(7, "analista")
+        rec = orchestrator.build_job(7, "recolector")
+        for job in (an, rec):
+            spec, pod = job["spec"], job["spec"]["template"]["spec"]
+            self.assertEqual(job["metadata"]["namespace"], "phantom-agents")
+            self.assertEqual(spec["backoffLimit"], 1)
+            self.assertEqual(spec["ttlSecondsAfterFinished"], 600)
+            self.assertEqual(pod["restartPolicy"], "Never")
+            self.assertEqual(pod["containers"][0]["imagePullPolicy"], "Never")
+            self.assertEqual(job["metadata"]["labels"]["phantom/audit"], "7")
+        self.assertEqual(an["metadata"]["name"], "phantom-7-analista")
+        apod, rpod = an["spec"]["template"]["spec"], rec["spec"]["template"]["spec"]
+        self.assertEqual(apod["serviceAccountName"], "phantom-agente")
+        self.assertFalse(apod["automountServiceAccountToken"])
+        self.assertNotIn("volumes", apod)
+        self.assertEqual(rpod["serviceAccountName"], "phantom-recolector")
+        self.assertEqual(rpod["volumes"][0]["secret"]["secretName"], "phantom-pf-ro")
+        env = {e["name"]: e for e in apod["containers"][0]["env"]}
+        self.assertEqual(env["PHANTOM_AGENT_TOKEN"]["valueFrom"]["secretKeyRef"]["name"], "phantom-audit-7")
+        self.assertNotIn("PHANTOM_PF_KEY", env)
+        self.assertIn("PHANTOM_PF_KEY", {e["name"] for e in rpod["containers"][0]["env"]})
+
+    def test_wait_times_out(self):
+        import time
+
+        from .agents import orchestrator
+        with patch.object(orchestrator, "job_state", lambda n: {"phase": "running", "node": "n", "failed_pods": 0}), \
+             patch.object(orchestrator, "POLL", 0.05):
+            t = time.monotonic()
+            out = orchestrator.wait(["phantom-1-auditor"], lambda n, s: None, timeout=0.3)
+        self.assertEqual(out, {"phantom-1-auditor": "timeout"})
+        self.assertLess(time.monotonic() - t, 2)
+
+    def test_wait_reports_events_and_final_phase(self):
+        from .agents import orchestrator
+        seq = iter([{"phase": "pending", "node": None, "failed_pods": 0},
+                    {"phase": "running", "node": "k3d-phantom-agent-0", "failed_pods": 0},
+                    {"phase": "running", "node": "k3d-phantom-agent-0", "failed_pods": 1},
+                    {"phase": "complete", "node": "k3d-phantom-agent-0", "failed_pods": 1}])
+        events = []
+        with patch.object(orchestrator, "job_state", lambda n: next(seq)), patch.object(orchestrator, "POLL", 0):
+            out = orchestrator.wait(["j"], lambda n, s: events.append(dict(s)), timeout=5)
+        self.assertEqual(out, {"j": "complete"})
+        self.assertEqual([e["phase"] for e in events], ["pending", "running", "running", "complete"])
+
+
+class FakeCluster:
+    """Simula Kubernetes: cada Job 'termina' entregando el resultado del rol como lo haría el pod."""
+
+    def __init__(self, fail=()):
+        self.created, self.waited, self.fail = [], [], set(fail)
+
+    def create_job(self, audit_id, role):
+        self.created.append(role)
+        return f"phantom-{audit_id}-{role}"
+
+    def wait(self, names, on_event, timeout):
+        self.waited.append([n.split("-")[-1] for n in names])
+        out = {}
+        for n in names:
+            audit_id, role = int(n.split("-")[1]), n.split("-")[2]
+            on_event(n, {"phase": "running", "node": "k3d-phantom-agent-0", "failed_pods": 0})
+            if role in self.fail:
+                out[n] = "failed"
+                continue
+            res = {"recolector": {"snapshot": INSECURE, "errors": []},
+                   "analista": {"findings": analyst.analyze(INSECURE)},
+                   "auditor": {"findings": auditor.audit(INSECURE, [22, 80, 443])},
+                   "planificador": {"proposals": []}}[role]
+            AgentRun.objects.update_or_create(audit_id=audit_id, role=role, defaults={"status": "done", "result": res})
+            out[n] = "complete"
+        return out
+
+
+@patch("core.agents.coordinator.PAUSA", 0)
+class CoordinatorK8sTests(TestCase):
+    def _run(self, cluster, **kw):
+        from .agents import coordinator, orchestrator
+        with _k8s_settings(**kw), patch.object(orchestrator, "create_job", cluster.create_job), \
+             patch.object(orchestrator, "wait", cluster.wait), patch.object(orchestrator, "create_secret", lambda a, t: None), \
+             patch.object(orchestrator, "cleanup", lambda a: None), \
+             patch("core.controller.preview", lambda op, params: "preview"):
+            return coordinator.run_audit()
+
+    def test_stages_order_and_parallelism(self):
+        c = FakeCluster()
+        audit = self._run(c)
+        self.assertEqual(c.created, ["recolector", "analista", "auditor", "planificador"])
+        self.assertEqual(c.waited, [["recolector"], ["analista", "auditor"], ["planificador"]])
+        self.assertEqual(audit.status, Audit.Status.DONE)
+        self.assertEqual(audit.agent_token, "")
+        rules = sorted(audit.findings.values_list("rule_id", flat=True))
+        self.assertEqual(rules, sorted(f["rule_id"] for f in analyst.analyze(INSECURE) + auditor.audit(INSECURE, [22, 80, 443])))
+        self.assertTrue(audit.messages.filter(kind="k8s", text__icontains="k3d-phantom-agent-0").exists())
+
+    def test_failed_job_fails_audit_with_message(self):
+        audit = self._run(FakeCluster(fail={"auditor"}))
+        self.assertEqual(audit.status, Audit.Status.FAILED)
+        last = audit.messages.order_by("-seq").first()
+        self.assertIn("auditor", last.text)
+        self.assertEqual(audit.agent_token, "")
+        self.assertEqual(audit.proposals.count(), 0)
+
+
+class StartAuditViewTests(TestCase):
+    def setUp(self):
+        self.op = User.objects.create_user("op", password="x")
+        self.op.groups.add(Group.objects.get_or_create(name="operador")[0])
+        self.obs = User.objects.create_user("obs", password="x")
+
+    def _client(self, u):
+        c = APIClient()
+        c.force_authenticate(u)
+        return c
+
+    def test_second_audit_conflict(self):
+        Audit.objects.create()
+        with patch("core.agents.coordinator.start_audit") as st:
+            r = self._client(self.op).post("/api/audits/run/", {}, format="json")
+        self.assertEqual(r.status_code, 409)
+        st.assert_not_called()
+
+    def test_observer_cannot_simulate_failure(self):
+        with patch("core.agents.coordinator.start_audit") as st:
+            r = self._client(self.obs).post("/api/audits/run/", {"fail_agent": "auditor"}, format="json")
+        self.assertEqual(r.status_code, 403)
+        st.assert_not_called()
+
+    def test_operator_simulates_failure(self):
+        with patch("core.agents.coordinator.start_audit", return_value=Audit(id=5, status="running")) as st:
+            r = self._client(self.op).post("/api/audits/run/", {"fail_agent": "auditor"}, format="json")
+        self.assertEqual(r.status_code, 202)
+        st.assert_called_once_with(self.op, fail_agent="auditor")
+
+    def test_invalid_fail_agent(self):
+        with patch("core.agents.coordinator.start_audit") as st:
+            r = self._client(self.op).post("/api/audits/run/", {"fail_agent": "hacker"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        st.assert_not_called()
+
+
+class RecoverAuditsTests(TestCase):
+    def test_recover_audits_purges_jobs(self):
+        from django.core.management import call_command
+        a = Audit.objects.create(agent_token=TOKEN)
+        with patch("core.agents.orchestrator.purge") as purge:
+            call_command("recover_audits", stdout=open("/dev/null", "w"))
+        purge.assert_called_once_with(a.id)
+        a.refresh_from_db()
+        self.assertEqual((a.status, a.agent_token), (Audit.Status.FAILED, ""))

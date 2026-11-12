@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from . import connectivity, controller, insights
 from .adapters import docker, k8s, pf
 from .agents import coordinator, llm
-from .models import Audit, AuditEvent, ConnectivityRun, Finding, Proposal, record
+from .models import AgentRun, Audit, AuditEvent, ConnectivityRun, Finding, Proposal, record
 from .serializers import (AuditDetailSerializer, AuditEventSerializer, AuditListSerializer,
                           ConnectivityRunSerializer, FindingSerializer, ProposalSerializer)
 
@@ -130,8 +130,18 @@ class AuditDetail(generics.RetrieveAPIView):
 
 @api_view(["POST"])
 def start_audit(request):
-    """Inicia la auditoria en segundo plano; el progreso se lee en /audits/<id>/messages/."""
-    audit = coordinator.start_audit(request.user)
+    """Inicia la auditoria en segundo plano; el progreso se lee en /audits/<id>/messages/.
+
+    `fail_agent` (solo operadores) simula la caida del primer intento de ese agente.
+    """
+    fail = request.data.get("fail_agent") or ""
+    if fail and fail not in AgentRun.ROLES:
+        return Response({"detail": "Agente desconocido"}, status=400)
+    if fail and not is_operator(request.user):
+        return Response({"detail": "Solo un operador puede simular fallos"}, status=403)
+    if Audit.objects.filter(status=Audit.Status.RUNNING).exists():
+        return Response({"detail": "Ya hay una auditoría en curso"}, status=409)
+    audit = coordinator.start_audit(request.user, fail_agent=fail)
     return Response({"id": audit.id, "status": audit.status}, status=status.HTTP_202_ACCEPTED)
 
 
