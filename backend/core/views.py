@@ -61,7 +61,9 @@ def overview(request):
         data["firewall"] = pf.collect()
     except pf.PFError as exc:
         data["errors"].append(f"freebsd/pf: {exc}")
-    data["llm"] = {"model": settings.PHANTOM["OLLAMA_MODEL"], "available": llm.available()}
+    in_k8s = settings.PHANTOM["AGENTS_MODE"] == "k8s"
+    data["llm"] = {"model": settings.PHANTOM["OLLAMA_MODEL"], "where": "kubernetes" if in_k8s else "host",
+                   "available": k8s.ollama_ready() if in_k8s else llm.available()}
     last = Audit.objects.filter(status=Audit.Status.DONE).first()
     data["last_audit"] = AuditListSerializer(last).data if last else None
     data["open_findings"] = {s: Finding.objects.filter(audit=last, severity=s).count()

@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api } from "./api.js";
-import { Busy, Ico, fecha, useLoad } from "./ui.jsx";
+import { Busy, ICONOS, Ico, fecha, useLoad } from "./ui.jsx";
+import { ROLES, ultimaAuditoria } from "./AgentesK8s.jsx";
+import { AGENTES } from "./Sala.jsx";
 import { APP_NOMBRE, APP_TECH, TechG, techColor } from "./tech.jsx";
 
 const VERDE = "#3CF5A2", ROJO = "#FF4D5E", GRIS = "#3B5A4B", AZUL = "#6CD4FF";
@@ -149,31 +151,77 @@ function VistaApp({ topo, orq, sel, onSel }) {
 }
 
 /* ---------------- vista 2: plano de gestion de PHANTOM ---------------- */
-const GESTION = [
-  ["postgres", "Base de datos", "guarda auditorías y registro", "PostgreSQL :5433", false],
-  ["kubernetes", "API de Kubernetes", "lee el estado y aplica cambios", "kubectl (HTTPS)", false],
-  ["freebsd", "Firewall FreeBSD", "solo operaciones permitidas", "SSH restringido", true],
-  ["ollama", "IA local (Mistral)", "explica las propuestas", "HTTP :11434", false],
-  ["docker", "Proxy de Docker", "ve contenedores, no los cambia", "solo lectura :2375", true],
-];
-function VistaGestion({ sel, onSel }) {
+// Kubernetes orquesta a los agentes: un pod por agente y por auditoria (namespace phantom-agents).
+const AY = { recolector: 100, analista: 190, auditor: 280, planificador: 370 };
+const FASE_TXT = { pending: "naciendo", running: "trabajando", complete: "terminó", failed: "falló" };
+
+function VistaGestion({ sel, onSel, orq }) {
+  const agents = orq?.kubernetes?.agents;
+  const ai = orq?.kubernetes?.ai;
+  const audit = ultimaAuditoria(agents);
+  const job = (r) => (agents?.jobs || []).find((j) => j.agent === r && Number(j.audit) === audit);
+  const caidos = (r) => (agents?.pods || []).filter((p) => p.agent === r && Number(p.audit) === audit && p.state === "Failed").length;
+  const vivo = (r) => ["running", "pending"].includes(job(r)?.phase);
+  const color = (r) => (vivo(r) ? AGENTES[r].color : GRIS);
+  const KX = 700;   // centro de la columna de agentes
   return (
-    <svg viewBox="0 0 1040 520" className="topo-svg" role="img" aria-label="Cómo PHANTOM gestiona la infraestructura">
-      <Linea d="M136,260 L250,260" color={AZUL} paquete etiqueta="navegador" lx={193} ly={248} />
-      <Linea d="M400,260 L470,260" color={AZUL} paquete etiqueta="API REST" lx={435} ly={248} />
-      {GESTION.map(([t, , , proto, lock], i) => {
-        const yy = 70 + i * 95;
-        return <Linea key={t} d={`M660,260 C730,260 715,${yy} 795,${yy}`} color={lock ? VERDE : AZUL} paquete etiqueta={proto} lx={785} ly={yy - 12} anchor="end" />;
-      })}
+    <svg viewBox="0 0 1100 560" className="topo-svg" role="img" aria-label="Cómo PHANTOM orquesta a sus agentes">
+      <defs><pattern id="pt4" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="rgba(60,245,162,.1)" /></pattern></defs>
+      {/* caja de Kubernetes */}
+      <rect x="560" y="40" width="290" height="500" rx="14" fill="url(#pt4)" stroke="rgba(50,108,229,.5)" strokeDasharray="6 5" />
+      <TechG n="kubernetes" x={582} y={60} size={20} /><text x="598" y="65" fill="#8FB3A2" fontSize="13" fontFamily="Instrument Sans">Kubernetes</text>
+      <text x="598" y="82" fill="#5C7A6C" fontSize="11" fontFamily="JetBrains Mono">phantom-agents</text>
+      <line x1="575" y1="425" x2="835" y2="425" stroke="#14271D" strokeDasharray="4 5" />
+      <text x="840" y="444" textAnchor="end" fill="#5C7A6C" fontSize="11.5" fontFamily="JetBrains Mono">phantom-ai</text>
+
+      {/* navegador y backend */}
+      <Linea d="M136,200 L190,200" color={AZUL} paquete />
+      <Linea d="M340,200 L360,200" color={AZUL} />
+      {/* el coordinador pide a Kubernetes un pod por agente */}
+      {ROLES.map((r) => <Linea key={r} d={`M530,200 C560,200 560,${AY[r]} ${KX - 105},${AY[r]}`} color={color(r)} paquete={vivo(r)} grueso={vivo(r) ? 2.4 : 1.4} />)}
+      <text x="548" y="150" textAnchor="middle" fill="#8FB3A2" fontSize="12" fontFamily="Instrument Sans">crea un Job</text>
+      {/* recolector: lectura del firewall y de la app auditada */}
+      <Linea d={`M${KX + 105},${AY.recolector - 8} C880,${AY.recolector - 8} 880,95 905,95`} color={vivo("recolector") ? VERDE : GRIS} paquete={vivo("recolector")} etiqueta="SSH solo lectura" lx={890} ly={AY.recolector - 22} anchor="end" />
+      <Linea d={`M${KX + 105},${AY.recolector + 8} C880,${AY.recolector + 8} 880,235 905,235`} color={vivo("recolector") ? VERDE : GRIS} paquete={vivo("recolector")} etiqueta="lee (RBAC)" lx={872} ly={170} anchor="middle" />
+      {/* planificador -> IA */}
+      <Linea d={`M${KX},${AY.planificador + 24} L${KX},466`} color={vivo("planificador") ? AGENTES.planificador.color : GRIS} paquete={vivo("planificador")} etiqueta="pregunta a la IA" lx={KX + 10} ly={418} anchor="start" />
+      {/* controlador: unico que cambia algo, y solo con aprobacion */}
+      <Linea d="M445,165 L445,20 L980,20 L980,62" color={VERDE} dash="2 5" etiqueta="controlador: solo cambios aprobados" lx={700} ly={14} />
+      <Linea d="M980,128 L980,205" color={VERDE} dash="2 5" />
+      {/* backend -> base de datos y proxy de docker */}
+      <Linea d="M440,235 L440,382" color={AZUL} paquete etiqueta="guarda" lx={452} ly={312} anchor="start" />
+      <Linea d="M400,235 C400,300 300,420 300,468" color={VERDE} etiqueta="solo lectura" lx={300} ly={360} anchor="middle" />
+
       <g className="topo-caja" onClick={() => onSel("usuario")}>
-        <circle cx="100" cy="260" r="36" fill="#07110C" stroke={sel === "usuario" ? VERDE : "#5C7A6C"} strokeWidth="1.6" />
-        <svg x="86" y="246" width="28" height="28" viewBox="0 0 24 24" className="ico" style={{ color: "#D8F3E5" }}><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5" /></svg>
-        <text x="100" y="314" textAnchor="middle" fill="#8FB3A2" fontSize="13" fontFamily="Chakra Petch">Operador</text>
+        <circle cx="100" cy="200" r="36" fill="#07110C" stroke={sel === "usuario" ? VERDE : "#5C7A6C"} strokeWidth="1.6" />
+        <svg x="86" y="186" width="28" height="28" viewBox="0 0 24 24" className="ico" style={{ color: "#D8F3E5" }}><circle cx="12" cy="8" r="3.5" /><path d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5" /></svg>
+        <text x="100" y="254" textAnchor="middle" fill="#8FB3A2" fontSize="13" fontFamily="Chakra Petch">Operador</text>
       </g>
-      <Caja id="panel" x={325} y={260} w={150} tech="react" titulo="Panel" sub="lo que estás viendo" sel={sel} onSel={onSel} />
-      <Caja id="backend" x={565} y={260} w={190} h={70} tech="django" titulo="Backend" sub="agentes y controlador" color={VERDE} sel={sel} onSel={onSel} />
-      {GESTION.map(([t, titulo, sub, , lock], i) => (
-        <Caja key={t} id={`g-${t}`} x={915} y={70 + i * 95} w={240} tech={t} titulo={titulo} sub={sub} candado={lock} sel={sel} onSel={onSel} />))}
+      <Caja id="panel" x={265} y={200} w={150} tech="react" titulo="Panel" sub="lo que estás viendo" sel={sel} onSel={onSel} />
+      <Caja id="backend" x={445} y={200} w={170} h={70} tech="django" titulo="Backend" sub="coordinador" color={VERDE} sel={sel} onSel={onSel} />
+      <Caja id="g-postgres" x={440} y={410} w={190} tech="postgres" titulo="Base de datos" sub="auditorías y registro" sel={sel} onSel={onSel} />
+      <Caja id="g-docker" x={300} y={495} w={190} tech="docker" titulo="Proxy de Docker" sub="ve, no cambia" candado sel={sel} onSel={onSel} />
+
+      {/* agentes: un pod cada uno, solo mientras trabajan */}
+      {ROLES.map((r) => {
+        const ag = AGENTES[r], j = job(r), on = sel === `ag-${r}`, c = caidos(r);
+        return (
+          <g key={r} transform={`translate(${KX},${AY[r]})`} className="topo-caja" onClick={() => onSel(`ag-${r}`)} opacity={j ? 1 : .55}>
+            <rect x="-105" y="-26" width="210" height="52" rx="10" fill="#07110C" stroke={on ? VERDE : vivo(r) ? ag.color : "#1D3729"} strokeWidth={vivo(r) || on ? 2.2 : 1.4}
+              strokeDasharray={j ? "" : "5 4"} style={vivo(r) ? { filter: `drop-shadow(0 0 8px ${ag.color})` } : null} />
+            <svg x="-92" y="-12" width="24" height="24" viewBox="0 0 24 24" className="ico" style={{ color: ag.color }}>{ICONOS[ag.ico]}</svg>
+            <text x="-60" y="-3" fill="#F2FFF8" fontSize="14.5" fontFamily="Chakra Petch" fontWeight="600">{ag.nombre}</text>
+            <text x="-60" y="14" fill={j?.phase === "failed" ? ROJO : "#8FB3A2"} fontSize="12" fontFamily="Instrument Sans">
+              {j ? `pod ${FASE_TXT[j.phase] || j.phase}` : "dormido: nace al auditar"}</text>
+            {c > 0 && <g transform="translate(88,-18)"><rect x="-26" y="-9" width="52" height="18" rx="9" fill="#1A0A0C" stroke={ROJO} />
+              <text y="4" textAnchor="middle" fontSize="10.5" fill={ROJO} fontFamily="JetBrains Mono">{`cayó ×${c}`}</text></g>}
+          </g>);
+      })}
+      <Caja id="g-ollama" x={KX} y={490} w={210} tech="ollama" titulo="IA local" sub={ai?.ready ? "Mistral, siempre encendida" : "no disponible"} alerta={ai && !ai.ready} sel={sel} onSel={onSel} />
+
+      {/* sistemas que se auditan */}
+      <Caja id="g-freebsd" x={980} y={95} w={170} h={66} tech="freebsd" titulo="Firewall" sub="FreeBSD PF" candado sel={sel} onSel={onSel} />
+      <Caja id="g-app" x={980} y={235} w={170} h={60} tech="kubernetes" titulo="App auditada" sub="phantom-demo" sel={sel} onSel={onSel} />
     </svg>
   );
 }
@@ -195,11 +243,12 @@ function Ficha({ sel, topo, orq }) {
       [["Base de datos", svc("db")?.node_ports?.length ? `abierta en ${svc("db").node_ports.join(", ")}` : "cerrada"]]],
     usuario: ["Operador", "La persona que usa PHANTOM. Aprueba o rechaza cada cambio.", []],
     panel: ["Panel (React)", "La interfaz web. No toca la infraestructura: todo se lo pide al backend.", [["Puerto", "8088"]]],
-    backend: ["Backend (Django)", "El centro de control: reúne datos, ejecuta los agentes y aplica solo los cambios aprobados.", [["Puerto", "8000"], ["Agentes", "5"]]],
+    backend: ["Backend (Django)", "El coordinador: cuando pides una auditoría, le pide a Kubernetes un pod por agente, junta lo que encuentran y guarda las propuestas. Solo su controlador cambia la infraestructura, y únicamente con tu aprobación.", [["Puerto", "8000"], ["Agentes", "4, cada uno en su pod"]]],
+    "g-app": ["App auditada", "La aplicación de laboratorio (Web, API y base de datos) que los agentes revisan. El recolector solo puede leerla.", [["Espacio", topo?.namespace]]],
     "g-postgres": ["Base de datos", "Guarda auditorías, hallazgos, propuestas y el registro de actividad.", [["Motor", "PostgreSQL 16"]]],
     "g-kubernetes": ["API de Kubernetes", "Por aquí PHANTOM consulta el estado del clúster y aplica cambios en el espacio de laboratorio.", [["Espacio", topo?.namespace]]],
-    "g-freebsd": ["Firewall por SSH", "PHANTOM entra con una llave que solo puede ejecutar el programa phantom-pf. Cualquier otra orden se rechaza.", [["Puede", "consultar, bloquear y desbloquear puertos"]]],
-    "g-ollama": ["IA local", "El modelo Mistral corre en tu equipo. Redacta las explicaciones; las reglas de seguridad no dependen de él.", [["Modelo", "mistral"]]],
+    "g-freebsd": ["Firewall por SSH", "Dos llaves, cada una forzada al programa phantom-pf: la del recolector solo puede consultar; la del controlador puede bloquear o desbloquear puertos, y solo tras tu aprobación.", [["Recolector", "solo lectura"], ["Controlador", "cambios aprobados"]]],
+    "g-ollama": ["IA local", "El modelo Mistral corre en un pod de Kubernetes y queda cargado en memoria. Redacta las explicaciones; las reglas de seguridad no dependen de él. Solo los agentes pueden hablarle.", [["Modelo", "mistral"], ["Namespace", "phantom-ai"], ["Pod", orq?.kubernetes?.ai?.pods?.[0]?.name]]],
     "g-docker": ["Proxy de Docker", "Deja ver qué contenedores corren, pero no permite crear ni detener ninguno.", [["Permite", "solo listar contenedores"]]],
   };
   ["frontend", "api", "db"].forEach((a) => {
@@ -208,6 +257,15 @@ function Ficha({ sel, topo, orq }) {
       [["Acceso", n?.service_type === "NodePort" ? "abierto fuera del clúster" : "solo interno"], ["Puerto", n?.ports.join(", ")], ["Copias", pods.filter((p) => p.app === a).length]]];
   });
   pods.forEach((p) => { F[`pod-${p.name}`] = [`Copia de ${APP_NOMBRE[p.app]}`, "Un contenedor en ejecución dentro de un nodo de Kubernetes.", [["Nombre", p.name], ["Nodo", p.node], ["IP", p.ip], ["Memoria", p.metrics ? `${p.metrics.mem_mi} MB` : "—"]]]; });
+  const ag = orq?.kubernetes?.agents;
+  const aud = ultimaAuditoria(ag);
+  ROLES.forEach((r) => {
+    const j = (ag?.jobs || []).find((x) => x.agent === r && Number(x.audit) === aud);
+    const ps = (ag?.pods || []).filter((p) => p.agent === r && Number(p.audit) === aud);
+    F[`ag-${r}`] = [`Agente: ${AGENTES[r].nombre}`, `${AGENTES[r].rol}. Kubernetes lo crea como un Job cuando pides una auditoría, lo reintenta si su pod cae y lo borra a los 10 minutos.`,
+      [["Última auditoría", aud ?? "—"], ["Estado", j ? FASE_TXT[j.phase] || j.phase : "dormido"], ["Pods", ps.map((p) => `${p.name.split("-").pop()} (${p.state})`).join(", ") || "—"],
+       ["Nodo", ps.at(-1)?.node], ["Reintentos", j?.failed ?? 0]]];
+  });
   const f = F[sel];
   if (!f) return <div className="ficha vacia"><Ico n="info" />Toca cualquier pieza del mapa para ver qué es y cómo está.</div>;
   return (
@@ -232,14 +290,16 @@ export default function Topology() {
     setBusy(false);
   };
   const t = topo.data;
+  // la vista de gestion muestra a los agentes en vivo
+  useEffect(() => { if (vista !== "gestion") return; const i = setInterval(() => orq.reload(), 2500); return () => clearInterval(i); }, [vista]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <div className="cabeza">
-        <div><h1>Topología</h1><p>{vista === "app" ? "Por dónde viaja el tráfico de la aplicación." : "Cómo PHANTOM se conecta con cada sistema."}{t?.connectivity_at && vista === "app" ? ` Última prueba: ${fecha(t.connectivity_at)}.` : ""}</p></div>
+        <div><h1>Topología</h1><p>{vista === "app" ? "Por dónde viaja el tráfico de la aplicación." : "Cómo Kubernetes orquesta a los agentes de PHANTOM."}{t?.connectivity_at && vista === "app" ? ` Última prueba: ${fecha(t.connectivity_at)}.` : ""}</p></div>
         <div className="fila">
           <div className="pestanas" role="tablist">
             <button role="tab" aria-selected={vista === "app"} className={vista === "app" ? "on" : ""} onClick={() => { setVista("app"); setSel(null); }}><Ico n="red" />Aplicación</button>
-            <button role="tab" aria-selected={vista === "gestion"} className={vista === "gestion" ? "on" : ""} onClick={() => { setVista("gestion"); setSel(null); }}><Ico n="escudo" />Gestión PHANTOM</button>
+            <button role="tab" aria-selected={vista === "gestion"} className={vista === "gestion" ? "on" : ""} onClick={() => { setVista("gestion"); setSel(null); }}><Ico n="escudo" />Agentes y gestión</button>
           </div>
           {vista === "app" && <button className="btn primary" onClick={probar} disabled={busy}><Busy on={busy}>{!busy && <Ico n="pulso" />}Probar flujos</Busy></button>}
         </div>
@@ -248,7 +308,7 @@ export default function Topology() {
       {t && (
         <div className="topo-layout">
           <div className="panel mapa">
-            {vista === "app" ? <VistaApp topo={t} orq={orq.data} sel={sel} onSel={setSel} /> : <VistaGestion sel={sel} onSel={setSel} />}
+            {vista === "app" ? <VistaApp topo={t} orq={orq.data} sel={sel} onSel={setSel} /> : <VistaGestion sel={sel} onSel={setSel} orq={orq.data} />}
             <div className="leyenda">
               {vista === "app" ? <>
                 <span><i style={{ borderColor: VERDE }} />Permitido y funciona</span>
@@ -258,6 +318,8 @@ export default function Topology() {
               </> : <>
                 <span><i style={{ borderColor: AZUL }} />Conexión normal</span>
                 <span><i style={{ borderColor: VERDE }} />Acceso restringido (candado)</span>
+                <span><i style={{ borderColor: "#FFD25C" }} />Agente trabajando ahora</span>
+                <span><i style={{ borderColor: GRIS, borderTopStyle: "dashed" }} />Agente dormido</span>
               </>}
             </div>
           </div>

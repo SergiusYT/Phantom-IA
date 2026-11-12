@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import { Busy, Ico } from "./ui.jsx";
+import AgentesK8s from "./AgentesK8s.jsx";
+import { AGENTES } from "./Sala.jsx";
 import { APP_NOMBRE, APP_TECH, Tech } from "./tech.jsx";
 
 const PLATAFORMA = {
   "phantom-frontend": ["react", "Panel"], "phantom-backend": ["django", "Backend"],
   "phantom-db": ["postgres", "Base de datos"], "docker-proxy": ["docker", "Proxy Docker"],
 };
-const ESTADO = { Running: "Activo", Pending: "Esperando", ContainerCreating: "Iniciando", Terminating: "Cerrando" };
+const ESTADO = { Running: "Activo", Pending: "Esperando", ContainerCreating: "Iniciando", Terminating: "Cerrando", Succeeded: "Terminó", Failed: "Cayó" };
 const EVENTO = {
   Scheduled: "asignado a un nodo", Pulled: "imagen lista", Created: "contenedor creado", Started: "en marcha",
   Killing: "detenido", SuccessfulCreate: "copia creada", SuccessfulDelete: "copia eliminada", ScalingReplicaSet: "copias ajustadas",
@@ -28,14 +30,15 @@ function Seguimiento({ exp, pasos }) {
 }
 
 function Pod({ p, nuevo }) {
-  const t = APP_TECH[p.app];
-  const cls = p.state === "Terminating" ? "muere" : p.state !== "Running" || !p.ready ? "espera" : "";
+  const ag = AGENTES[p.agent];
+  const cls = p.state === "Terminating" || p.state === "Failed" ? "muere" : p.state === "Succeeded" ? "fin"
+    : p.state !== "Running" || !p.ready ? "espera" : "";
   return (
-    <div className={`pod2 ${cls} ${nuevo ? "nuevo" : ""}`} title={p.name}>
-      <Tech n={t} size={26} />
+    <div className={`pod2 ${cls} ${nuevo ? "nuevo" : ""} ${ag ? "de-agente" : ""}`} title={p.name} style={ag ? { "--a": ag.color } : null}>
+      {ag ? <span className="agente-ico chico"><Ico n={ag.ico} /></span> : <Tech n={p.app === "ollama" ? "ollama" : APP_TECH[p.app]} size={26} />}
       <div>
-        <b>{APP_NOMBRE[p.app] || p.app}</b>
-        <span><i className={`led ${cls === "muere" ? "mal" : cls ? "esp" : "ok"}`} />{ESTADO[p.state] || p.state}</span>
+        <b>{ag ? `Agente ${ag.nombre.toLowerCase()}` : p.app === "ollama" ? "IA local" : APP_NOMBRE[p.app] || p.app}</b>
+        <span><i className={`led ${cls === "muere" ? "mal" : cls === "fin" ? "" : cls ? "esp" : "ok"}`} />{ESTADO[p.state] || p.state}</span>
       </div>
       {p.metrics && <small>{p.metrics.mem_mi} MB</small>}
     </div>
@@ -54,7 +57,7 @@ export default function Orquestacion({ user, aviso }) {
     let vivo = true;
     const tick = () => api("orchestration/").then((r) => {
       if (!vivo) return;
-      const nombres = new Set((r.kubernetes?.pods || []).map((p) => p.name));
+      const nombres = new Set([...(r.kubernetes?.pods || []), ...(r.kubernetes?.agents?.pods || [])].map((p) => p.name));
       if (vistos.current) {
         const n = [...nombres].filter((x) => !vistos.current.has(x));
         if (n.length) { setNuevos(new Set(n)); setTimeout(() => setNuevos(new Set()), 2500); }
@@ -137,9 +140,10 @@ export default function Orquestacion({ user, aviso }) {
                     <div className="replicas">{Array.from({ length: Math.max(s.replicas, s.ready) }).map((_, i) => <i key={i} className={i < s.ready ? "on" : ""} />)}</div>
                   </div>))}
               </div>
+              <AgentesK8s agents={k.agents} ai={k.ai} />
               <div className="nodos2">
                 {nodos.map((n) => {
-                  const pods = k.pods.filter((p) => p.node === n.name);
+                  const pods = [...k.pods, ...(k.ai?.pods || []), ...(k.agents?.pods || [])].filter((p) => p.node === n.name);
                   return (
                     <div className="nodo2" key={n.name}>
                       <div className="nodo2-t">

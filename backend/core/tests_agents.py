@@ -356,3 +356,45 @@ class DeadlineTests(TestCase):
     def test_pod_failed_message_spanish(self):
         from .agents import coordinator
         self.assertEqual(coordinator.DEL["planificador"], "del planificador")
+
+
+def _fake_get_json(*args):
+    ts = "2026-11-12T18:00:00Z"
+    pod = lambda name, labels, phase="Succeeded": {  # noqa: E731
+        "metadata": {"name": name, "labels": labels, "creationTimestamp": ts},
+        "spec": {"nodeName": "k3d-phantom-server-0", "containers": [{"image": "phantom-agent:dev"}]},
+        "status": {"phase": phase, "podIP": "10.42.0.9", "containerStatuses": [{"ready": False, "restartCount": 0, "state": {}}]}}
+    if args[0] == "nodes":
+        return {"items": []}
+    ns = args[args.index("-n") + 1] if "-n" in args else None
+    if args[0] == "jobs" and ns == "phantom-agents":
+        return {"items": [{"metadata": {"name": "phantom-7-auditor", "creationTimestamp": ts,
+                                        "labels": {"phantom/audit": "7", "phantom/agent": "auditor"}},
+                           "status": {"failed": 1, "succeeded": 1, "startTime": ts, "completionTime": ts,
+                                      "conditions": [{"type": "Complete", "status": "True"}]}}]}
+    if args[0] == "pods" and ns == "phantom-agents":
+        return {"items": [pod("phantom-7-auditor-a", {"phantom/audit": "7", "phantom/agent": "auditor"}, "Failed"),
+                          pod("phantom-7-auditor-b", {"phantom/audit": "7", "phantom/agent": "auditor"})]}
+    if args[0] == "pods" and ns == "phantom-ai":
+        return {"items": [pod("ollama-x", {"app": "ollama"}, "Running")]}
+    if args[0] == "deployments" and ns == "phantom-ai":
+        return {"items": [{"metadata": {"name": "ollama"}, "spec": {"replicas": 1}, "status": {"readyReplicas": 1}}]}
+    return {"items": []}
+
+
+class OrchestrationAgentsTests(TestCase):
+    def test_orchestration_includes_agents(self):
+        from .adapters import k8s
+        with patch.object(k8s, "get_json", _fake_get_json), patch.object(k8s, "_top", lambda *a: {}):
+            o = k8s.orchestration()
+        job = o["agents"]["jobs"][0]
+        self.assertEqual((job["agent"], job["audit"], job["phase"], job["failed"]), ("auditor", "7", "complete", 1))
+        self.assertEqual([p["state"] for p in o["agents"]["pods"]], ["Failed", "Succeeded"])
+        self.assertEqual(o["agents"]["pods"][0]["agent"], "auditor")
+        self.assertTrue(o["ai"]["ready"])
+        self.assertEqual(o["ai"]["pods"][0]["name"], "ollama-x")
+
+    def test_ollama_ready(self):
+        from .adapters import k8s
+        with patch.object(k8s, "get_json", _fake_get_json):
+            self.assertTrue(k8s.ollama_ready())

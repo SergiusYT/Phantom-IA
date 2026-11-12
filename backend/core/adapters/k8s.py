@@ -203,6 +203,70 @@ def _pod_state(p):
     return p["status"].get("phase", "Unknown")
 
 
+def _pod_info(p, pmet=None):
+    labels = p["metadata"].get("labels", {})
+    return {
+        "name": p["metadata"]["name"],
+        "app": labels.get("app"),
+        "agent": labels.get("phantom/agent"),
+        "audit": labels.get("phantom/audit"),
+        "node": p["spec"].get("nodeName"),
+        "state": _pod_state(p),
+        "ready": bool(p["status"].get("containerStatuses")) and all(c.get("ready") for c in p["status"]["containerStatuses"]),
+        "restarts": sum(c.get("restartCount", 0) for c in p["status"].get("containerStatuses", []) or []),
+        "ip": p["status"].get("podIP"),
+        "image": p["spec"]["containers"][0]["image"],
+        "created": p["metadata"]["creationTimestamp"],
+        "metrics": (pmet or {}).get(p["metadata"]["name"]),
+    }
+
+
+def _job_phase(st):
+    conds = {c["type"]: c["status"] for c in st.get("conditions", []) or []}
+    if st.get("succeeded") or conds.get("Complete") == "True":
+        return "complete"
+    if conds.get("Failed") == "True":
+        return "failed"
+    return "running" if st.get("active") else "pending"
+
+
+def agents_state():
+    """Jobs y pods de los agentes (phantom-agents) y de la IA (phantom-ai)."""
+    ans, ains = CFG.get("AGENTS_NAMESPACE", "phantom-agents"), "phantom-ai"
+    out = {"agents": {"jobs": [], "pods": []}, "ai": {"pods": [], "ready": False}}
+    try:
+        jobs = get_json("jobs", "-n", ans)["items"]
+        pods = get_json("pods", "-n", ans)["items"]
+    except K8sError:
+        jobs, pods = [], []
+    pods.sort(key=lambda p: p["metadata"]["creationTimestamp"])
+    out["agents"]["jobs"] = [{
+        "name": j["metadata"]["name"],
+        "agent": j["metadata"].get("labels", {}).get("phantom/agent"),
+        "audit": j["metadata"].get("labels", {}).get("phantom/audit"),
+        "phase": _job_phase(j.get("status", {})),
+        "failed": j.get("status", {}).get("failed", 0) or 0,
+        "started": j.get("status", {}).get("startTime"),
+        "finished": j.get("status", {}).get("completionTime"),
+        "created": j["metadata"]["creationTimestamp"],
+    } for j in jobs]
+    out["agents"]["pods"] = [_pod_info(p) for p in pods if p["metadata"].get("labels", {}).get("phantom/agent")]
+    try:
+        out["ai"]["pods"] = [_pod_info(p) for p in get_json("pods", "-n", ains)["items"]]
+        out["ai"]["ready"] = ollama_ready()
+    except K8sError:
+        pass
+    return out
+
+
+def ollama_ready():
+    try:
+        deps = get_json("deployments", "-n", "phantom-ai")["items"]
+    except K8sError:
+        return False
+    return any(d["metadata"]["name"] == "ollama" and (d["status"].get("readyReplicas") or 0) >= 1 for d in deps)
+
+
 def orchestration():
     ns = CFG["NAMESPACE"]
     nodes = get_json("nodes")["items"]
@@ -222,18 +286,7 @@ def orchestration():
             "memory": n["status"]["capacity"].get("memory"),
             "metrics": nmet.get(n["metadata"]["name"]),
         } for n in nodes],
-        "pods": [{
-            "name": p["metadata"]["name"],
-            "app": p["metadata"].get("labels", {}).get("app"),
-            "node": p["spec"].get("nodeName"),
-            "state": _pod_state(p),
-            "ready": bool(p["status"].get("containerStatuses")) and all(c.get("ready") for c in p["status"]["containerStatuses"]),
-            "restarts": sum(c.get("restartCount", 0) for c in p["status"].get("containerStatuses", []) or []),
-            "ip": p["status"].get("podIP"),
-            "image": p["spec"]["containers"][0]["image"],
-            "created": p["metadata"]["creationTimestamp"],
-            "metrics": pmet.get(p["metadata"]["name"]),
-        } for p in pods],
+        "pods": [_pod_info(p, pmet) for p in pods],
         "deployments": [{
             "name": d["metadata"]["name"],
             "replicas": d["spec"].get("replicas", 0),
@@ -249,6 +302,7 @@ def orchestration():
             "message": e.get("message"),
             "count": e.get("count", 1),
         } for e in events][-40:],
+        **agents_state(),
     }
 
 
