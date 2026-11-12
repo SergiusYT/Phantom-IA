@@ -44,7 +44,7 @@ class AuditDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Audit
-        fields = "__all__"
+        exclude = ["agent_token"]
 
 
 class ConnectivityRunSerializer(serializers.ModelSerializer):

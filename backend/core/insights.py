@@ -141,7 +141,7 @@ def table(nombre, params, page_size=25):
 TIPO = {"BigAutoField": "id", "AutoField": "id", "CharField": "texto", "TextField": "texto largo", "DateTimeField": "fecha",
         "BooleanField": "sí/no", "JSONField": "json", "PositiveIntegerField": "número", "IntegerField": "número",
         "ForeignKey": "referencia", "EmailField": "texto"}
-OCULTAS = {"password", "first_name", "last_name", "email", "is_staff", "is_active"}   # no aportan al diagrama o son sensibles
+OCULTAS = {"password", "agent_token", "first_name", "last_name", "email", "is_staff", "is_active"}   # no aportan al diagrama o son sensibles
 
 
 def schema():

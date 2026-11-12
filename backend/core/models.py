@@ -24,6 +24,8 @@ class Audit(models.Model):
     snapshot = models.JSONField(default=dict, blank=True)       # datos normalizados recolectados
     analyst_summary = models.TextField(blank=True)
     errors = models.JSONField(default=list, blank=True)
+    agent_token = models.CharField(max_length=64, blank=True)    # credencial efimera de los pods de agentes
+    fail_agent = models.CharField(max_length=20, blank=True)     # "simular fallo": rol cuyo 1er intento cae
 
     class Meta:
         ordering = ["-created_at"]
@@ -138,3 +140,27 @@ class AuditMessage(models.Model):
     class Meta:
         ordering = ["audit", "seq"]
         unique_together = [("audit", "seq")]
+
+
+class AgentRun(models.Model):
+    """Ejecucion de un agente (un Job de Kubernetes) dentro de una auditoria."""
+    ROLES = ("recolector", "analista", "auditor", "planificador")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        RUNNING = "running", "Trabajando"
+        DONE = "done", "Terminado"
+        FAILED = "failed", "Fallido"
+
+    audit = models.ForeignKey(Audit, related_name="runs", on_delete=models.CASCADE)
+    role = models.CharField(max_length=20)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    result = models.JSONField(null=True, blank=True)
+    job_name = models.CharField(max_length=63, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = [("audit", "role")]
+        ordering = ["audit", "id"]
