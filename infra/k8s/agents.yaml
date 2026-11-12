@@ -1,0 +1,119 @@
+# PHANTOM AI - agentes orquestados por Kubernetes.
+# Cada auditoria crea un Job por agente en `phantom-agents` (lo hace el coordinador del backend).
+# Aqui solo vive lo permanente: namespaces, identidades, permisos minimos y aislamiento de red.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phantom-agents
+  labels: {app.kubernetes.io/part-of: phantom}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phantom-ai
+  labels: {app.kubernetes.io/part-of: phantom}
+---
+# Recolector: unico agente que habla con la API de Kubernetes (solo lectura).
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: phantom-recolector, namespace: phantom-agents}
+---
+# Analista, auditor y planificador: sin ningun permiso sobre el cluster.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: phantom-agente, namespace: phantom-agents}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: phantom-recolector-read, namespace: phantom-demo}
+rules:
+  - apiGroups: [""]
+    resources: [pods, services, endpoints, events]
+    verbs: [get, list]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list]
+  - apiGroups: [""]          # pruebas de conectividad internas (nc dentro de los pods de la app)
+    resources: [pods/exec]
+    verbs: [create, get]      # kubectl >= 1.30 abre exec por WebSocket (GET)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: phantom-recolector-read, namespace: phantom-demo}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: phantom-recolector-read}
+subjects: [{kind: ServiceAccount, name: phantom-recolector, namespace: phantom-agents}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: phantom-nodes-read}
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: phantom-recolector-nodes}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: phantom-nodes-read}
+subjects: [{kind: ServiceAccount, name: phantom-recolector, namespace: phantom-agents}]
+---
+# ---------- Red: los agentes solo hablan con lo que necesitan ----------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: phantom-agents}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns, namespace: phantom-agents}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+# API de agentes de PHANTOM (gunicorn ligado al gateway de la red de k3d).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-phantom-api, namespace: phantom-agents}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 172.18.0.1/32}}]
+      ports: [{protocol: TCP, port: 8001}]
+---
+# Solo el planificador usa la IA.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ollama, namespace: phantom-agents}
+spec:
+  podSelector: {matchLabels: {phantom/agent: planificador}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: phantom-ai}}
+          podSelector: {matchLabels: {app: ollama}}
+      ports: [{protocol: TCP, port: 11434}]
+---
+# Recolector: API de Kubernetes y firewall FreeBSD (SSH de solo lectura + pruebas de perimetro).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: recolector-extra, namespace: phantom-agents}
+spec:
+  podSelector: {matchLabels: {phantom/agent: recolector}}
+  policyTypes: [Egress]
+  egress:
+    - to: [{ipBlock: {cidr: 10.43.0.1/32}}]
+      ports: [{protocol: TCP, port: 443}]
+    - to: [{ipBlock: {cidr: 172.18.0.0/16}}]
+      ports: [{protocol: TCP, port: 6443}]
+    - to: [{ipBlock: {cidr: 172.16.97.132/32}}]
+      ports: [{protocol: TCP, port: 22}, {protocol: TCP, port: 80}, {protocol: TCP, port: 443}, {protocol: TCP, port: 8081}]

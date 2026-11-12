@@ -326,3 +326,33 @@ class RecoverAuditsTests(TestCase):
         purge.assert_called_once_with(a.id)
         a.refresh_from_db()
         self.assertEqual((a.status, a.agent_token), (Audit.Status.FAILED, ""))
+
+
+class RunnerTests(TestCase):
+    def test_wait_for_llm_retries_until_reachable(self):
+        from .agents import runner
+        answers = iter([False, False, True])
+        with patch("core.agents.llm.available", lambda: next(answers)), patch("time.sleep", lambda s: None):
+            self.assertTrue(runner.wait_for_llm(timeout=10))
+
+    def test_wait_for_llm_gives_up(self):
+        from .agents import runner
+        with patch("core.agents.llm.available", lambda: False), patch.object(runner, "POLL", 0.01):
+            self.assertFalse(runner.wait_for_llm(timeout=0.05))
+
+    def test_scheduled_event_uses_correct_spanish(self):
+        from .agents import coordinator
+        self.assertEqual(coordinator.AL["recolector"], "al recolector")
+
+
+class DeadlineTests(TestCase):
+    def test_planner_gets_longer_deadline(self):
+        from .agents import orchestrator
+        self.assertEqual(orchestrator.build_job(1, "planificador")["spec"]["activeDeadlineSeconds"], 480)
+        self.assertEqual(orchestrator.build_job(1, "auditor")["spec"]["activeDeadlineSeconds"], 180)
+        self.assertEqual(orchestrator.stage_timeout(["analista", "auditor"]), 240)
+        self.assertEqual(orchestrator.stage_timeout(["planificador"]), 540)
+
+    def test_pod_failed_message_spanish(self):
+        from .agents import coordinator
+        self.assertEqual(coordinator.DEL["planificador"], "del planificador")

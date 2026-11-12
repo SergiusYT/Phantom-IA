@@ -122,5 +122,4 @@ PHANTOM = {
     "AGENT_IMAGE": env("PHANTOM_AGENT_IMAGE", "phantom-agent:dev"),
     "AGENT_API_URL": env("PHANTOM_AGENT_API", "http://172.18.0.1:8001"),
     "AGENT_OLLAMA_URL": env("PHANTOM_AGENT_OLLAMA_URL", "http://ollama.phantom-ai:11434"),
-    "JOB_TIMEOUT": int(env("PHANTOM_JOB_TIMEOUT", "240")),
 }

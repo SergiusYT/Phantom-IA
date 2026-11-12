@@ -11,6 +11,18 @@ from django.conf import settings
 from ..adapters import k8s
 
 POLL = 1.0
+# El planificador escribe con el LLM en CPU (~70 s por propuesta): necesita mas tiempo.
+DEADLINE = {"planificador": 480}
+DEFAULT_DEADLINE = 180
+
+
+def deadline(role):
+    return DEADLINE.get(role, DEFAULT_DEADLINE)
+
+
+def stage_timeout(roles):
+    """Lo que espera el coordinador: el plazo del Job mas lento + margen para el reintento/arranque."""
+    return max(deadline(r) for r in roles) + 60
 
 
 def _ns():
@@ -72,7 +84,7 @@ def build_job(audit_id, role):
         "spec": {
             "backoffLimit": 1,
             "ttlSecondsAfterFinished": 600,
-            "activeDeadlineSeconds": 180,
+            "activeDeadlineSeconds": deadline(role),
             "template": {"metadata": {"labels": _labels(audit_id, role)}, "spec": pod},
         },
     }

@@ -8,4 +8,5 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 ENV PHANTOM_KUBECTL=/usr/local/bin/kubectl PYTHONUNBUFFERED=1
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed_users && python manage.py recover_audits && python manage.py collectstatic --noinput -v0 && gunicorn phantom.wsgi -b 127.0.0.1:8000 -w 3 -t 180"]
+RUN chmod +x entrypoint.sh
+CMD ["./entrypoint.sh"]

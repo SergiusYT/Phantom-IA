@@ -1,0 +1,56 @@
+# PHANTOM AI - IA local (Ollama + mistral) dentro de Kubernetes.
+# Imagen construida desde el binario de Ollama del host (CPU). El modelo se copia una vez al nodo
+# k3d-phantom-agent-0 (bin/phantom-up) y se monta con hostPath: no se descarga nada.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: phantom-ai
+  labels: {app: ollama, app.kubernetes.io/part-of: phantom}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: ollama}}
+  template:
+    metadata:
+      labels: {app: ollama, app.kubernetes.io/part-of: phantom}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: k3d-phantom-agent-0}
+      automountServiceAccountToken: false
+      containers:
+        - name: ollama
+          image: phantom-ollama:0.13.5
+          imagePullPolicy: Never
+          env:
+            - {name: OLLAMA_HOST, value: "0.0.0.0:11434"}
+            - {name: OLLAMA_MODELS, value: /models}
+            - {name: OLLAMA_KEEP_ALIVE, value: "-1"}      # el modelo queda cargado: respuestas sin espera
+          ports: [{containerPort: 11434, name: http}]
+          readinessProbe:
+            httpGet: {path: /api/tags, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: "2", memory: 6Gi}
+            limits: {memory: 8Gi}
+          volumeMounts: [{name: models, mountPath: /models, readOnly: true}]
+      volumes:
+        - name: models
+          hostPath: {path: /var/lib/phantom/ollama-models, type: Directory}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ollama, namespace: phantom-ai}
+spec:
+  selector: {app: ollama}
+  ports: [{port: 11434, targetPort: http, name: http}]
+---
+# Solo los agentes pueden preguntarle a la IA.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: only-agents, namespace: phantom-ai}
+spec:
+  podSelector: {matchLabels: {app: ollama}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: phantom-agents}}}]
+      ports: [{protocol: TCP, port: 11434}]

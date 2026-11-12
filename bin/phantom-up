@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Levanta todo PHANTOM AI en orden y repara lo que falte:
-#   modulos VMware -> red vmnet8 -> VM FreeBSD -> cluster k3d -> Docker Compose -> pruebas.
+#   modulos VMware -> red vmnet8 -> VM FreeBSD -> cluster k3d -> agentes e IA -> Docker Compose -> pruebas.
 # Solo pide sudo si VMware necesita reparacion.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,13 +51,83 @@ else
   ok "Cluster k3d activo"
 fi
 
-# 5. Plataforma (Docker Compose)
+# 4b. Salud interna del cluster (fallos vistos en este laboratorio)
+K() { "$PHX" kubectl "$@"; }
+# CoreDNS sin imagen en un nodo -> ningun pod resuelve nombres. Se copia desde otro nodo (sin internet).
+if ! K -n kube-system rollout status deploy/coredns --timeout=5s >/dev/null 2>&1; then
+  img=$(K -n kube-system get deploy coredns -o jsonpath='{.spec.template.spec.containers[0].image}')
+  for n in k3d-phantom-server-0 k3d-phantom-agent-0; do
+    "$PHX" docker exec "$n" crictl inspecti "$img" >/dev/null 2>&1 && src=$n && break
+  done
+  if [ -n "${src:-}" ]; then
+    fix "CoreDNS caido: copiando su imagen entre nodos"
+    "$PHX" docker exec "$src" ctr -n k8s.io images export /tmp/coredns.tar "docker.io/$img" >/dev/null
+    mkdir -p build && "$PHX" docker cp "$src":/tmp/coredns.tar build/coredns.tar >/dev/null
+    for n in k3d-phantom-server-0 k3d-phantom-agent-0; do
+      "$PHX" docker cp build/coredns.tar "$n":/tmp/coredns.tar >/dev/null && "$PHX" docker exec "$n" ctr -n k8s.io images import /tmp/coredns.tar >/dev/null
+    done
+    K -n kube-system delete pod -l k8s-app=kube-dns --wait=false >/dev/null
+  fi
+  K -n kube-system rollout status deploy/coredns --timeout=90s >/dev/null || fail "CoreDNS no arranca"
+fi
+ok "DNS del cluster activo"
+# Controlador de NetworkPolicy (kube-router en k3s): si se traba, deja pods sin reglas -> sin aislamiento.
+for n in k3d-phantom-server-0 k3d-phantom-agent-0; do
+  want=$(K get pods -A --field-selector "spec.nodeName=$n,status.phase=Running" -o jsonpath='{range .items[*]}{.spec.hostNetwork}:{.metadata.name}{"\n"}{end}' | grep -vc '^true:')
+  have=$("$PHX" docker exec "$n" iptables -S KUBE-ROUTER-FORWARD 2>/dev/null | grep -o 'POD name:[a-z0-9-]*' | sort -u | grep -c .)
+  if [ "$have" -lt "$want" ]; then
+    fix "NetworkPolicy desincronizada en $n ($have de $want pods protegidos): reiniciando el nodo"
+    "$PHX" docker restart "$n" >/dev/null && sleep 20
+    K wait --for=condition=Ready node --all --timeout=120s >/dev/null || fail "El nodo $n no volvio"
+  fi
+done
+ok "NetworkPolicy aplicada en todos los nodos"
+
+# 5. Agentes IA e IA local dentro de Kubernetes
 [ -f .env ] || fail "Falta .env (copia .env.example)"
+NODE=k3d-phantom-agent-0
+"$PHX" docker compose build phantom-backend >/dev/null 2>&1 || fail "No se pudo construir la imagen del backend"
+"$PHX" docker tag phantomai-phantom-backend:latest phantom-agent:dev
+if ! "$PHX" docker image inspect phantom-ollama:0.13.5 >/dev/null 2>&1; then
+  fix "Construyendo imagen de Ollama (CPU) desde el binario del host"
+  rm -rf build/ollama && mkdir -p build/ollama/bin build/ollama/lib
+  cp /usr/local/bin/ollama build/ollama/bin/ && cp -a /usr/local/lib/ollama/libggml-* build/ollama/lib/ \
+    || fail "No encuentro Ollama en /usr/local (binario o librerias)"
+  "$PHX" docker build -q -f infra/docker/ollama.Dockerfile -t phantom-ollama:0.13.5 . >/dev/null || fail "docker build de Ollama fallo"
+fi
+mkdir -p build
+for img in phantom-agent:dev phantom-ollama:0.13.5; do
+  id=$("$PHX" docker image inspect -f '{{.Id}}' "$img")
+  mark="build/.imported-${img%%:*}"
+  if [ "$(cat "$mark" 2>/dev/null)" != "$id" ]; then
+    fix "Importando $img al cluster"
+    "$PHX" k3d image import "$img" -c phantom >/dev/null 2>&1 || fail "k3d image import $img fallo"
+    echo "$id" > "$mark"
+  fi
+done
+ok "Imagenes de agentes e IA en el cluster"
+if ! "$PHX" docker exec "$NODE" test -d /var/lib/phantom/ollama-models/manifests 2>/dev/null; then
+  fix "Copiando el modelo $(grep -oP '^PHANTOM_OLLAMA_MODEL=\K.*' .env || echo mistral) al nodo $NODE (sin descargar)"
+  "$PHX" docker exec "$NODE" mkdir -p /var/lib/phantom/ollama-models
+  "$PHX" docker cp /usr/share/ollama/.ollama/models/. "$NODE":/var/lib/phantom/ollama-models/ >/dev/null \
+    || fail "No pude copiar el modelo desde /usr/share/ollama/.ollama/models"
+fi
+ok "Modelo disponible en el nodo"
+K apply -f infra/k8s/agents.yaml -f infra/k8s/ollama.yaml >/dev/null || fail "kubectl apply de agentes/IA fallo"
+K -n phantom-agents create secret generic phantom-pf-ro --from-file=key=infra/keys/phantom_ro_ed25519 \
+  --dry-run=client -o yaml | K apply -f - >/dev/null || fail "No pude crear el Secret phantom-pf-ro"
+K -n phantom-ai rollout status deploy/ollama --timeout=180s >/dev/null || fail "Ollama no arranco en el cluster"
+ok "Agentes listos (namespace phantom-agents) e IA en ejecucion (phantom-ai)"
+MODEL=$(grep -oP '^PHANTOM_OLLAMA_MODEL=\K.*' .env || echo mistral)
+K -n phantom-ai exec deploy/ollama -- python -c "import json,urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:11434/api/generate', data=json.dumps({'model':'$MODEL','keep_alive':-1}).encode()), timeout=300).read()" \
+  >/dev/null 2>&1 && ok "Modelo $MODEL cargado en memoria" || fix "No se pudo precargar $MODEL (la primera respuesta tardara mas)"
+
+# 6. Plataforma (Docker Compose)
 "$PHX" docker compose up -d >/dev/null 2>&1 || fail "docker compose up fallo"
 for i in $(seq 1 20); do curl -fs -o /dev/null http://localhost:8088/api/health/ && break; sleep 2; done
 curl -fs -o /dev/null http://localhost:8088/api/health/ && ok "Plataforma lista" || fail "La plataforma no responde"
 
-# 6. Prueba de punta a punta: Internet -> PF -> k3d -> nginx
+# 7. Prueba de punta a punta: Internet -> PF -> k3d -> nginx
 code=$(curl -s -m5 -o /dev/null -w '%{http_code}' "http://$PF_HOST/")
 [ "$code" = 200 ] && ok "Trafico por el firewall OK (HTTP $code)" || fix "Trafico por el firewall devolvio HTTP $code"
 

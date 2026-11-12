@@ -123,6 +123,8 @@ def _run_local(audit_id, user_id):
 
 
 ETAPA = {"recolector": "el recolector", "analista": "el analista", "auditor": "el auditor", "planificador": "el planificador"}
+AL = {r: "al " + v[3:] for r, v in ETAPA.items()}
+DEL = {r: "del " + v[3:] for r, v in ETAPA.items()}
 
 
 class StageError(Exception):
@@ -142,17 +144,17 @@ def _stage(audit, chat, roles_):
 
     def on_event(name, st):
         r = names[name]
-        if st.get("node") and seen_node.get(r) != st["node"] and st["phase"] in ("running", "complete"):
+        if st.get("node") and seen_node.get(r) != st["node"]:
             seen_node[r] = st["node"]
-            chat.say("coordinador", f"Kubernetes programó a {ETAPA[r]} en el nodo {st['node']}.", kind="k8s",
+            chat.say("coordinador", f"Kubernetes programó {AL[r]} en el nodo {st['node']}.", kind="k8s",
                      event="scheduled", role=r, node=st["node"])
         if st.get("failed_pods", 0) > seen_fail.get(r, 0):
             seen_fail[r] = st["failed_pods"]
             if st["phase"] != "failed":
-                chat.say("coordinador", f"El pod de {ETAPA[r]} cayó. Kubernetes lo reintenta automáticamente.",
+                chat.say("coordinador", f"El pod {DEL[r]} cayó. Kubernetes lo reintenta automáticamente.",
                          kind="k8s", event="pod_failed", role=r)
 
-    final = orchestrator.wait(list(names), on_event, settings.PHANTOM["JOB_TIMEOUT"])
+    final = orchestrator.wait(list(names), on_event, orchestrator.stage_timeout(roles_))
     out = {}
     for name, phase in final.items():
         r = names[name]

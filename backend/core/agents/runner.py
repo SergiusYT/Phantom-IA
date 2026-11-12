@@ -9,6 +9,22 @@ import sys
 
 import django
 
+POLL = 1.0
+
+
+def wait_for_llm(timeout=20):
+    """La NetworkPolicy que deja al pod hablar con Ollama tarda unos segundos en aplicarse."""
+    import time
+
+    from . import llm
+    deadline = time.monotonic() + timeout
+    while True:
+        if llm.available():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(POLL)
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
@@ -35,6 +51,8 @@ def main(argv=None):
         elif role == "auditor":
             out = roles.run_auditor(chat, inp["snapshot"], inp["allowed_ports"])
         else:
+            if not wait_for_llm():
+                chat.say(role, "No alcanzo la IA del clúster; uso explicaciones de plantilla.", kind="error")
             out = roles.run_planificador(chat, inp["snapshot"], inp["findings"])
     except Exception as exc:  # noqa: BLE001 - se informa en la Sala y Kubernetes reintenta
         try:

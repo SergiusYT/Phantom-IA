@@ -33,6 +33,7 @@ services:
       PHANTOM_DEBUG: "0"
       KUBECONFIG: /run/phantom/kubeconfig
       PHANTOM_PF_KEY: /run/phantom/phantom_ed25519
+      PHANTOM_AGENT_BIND: 172.18.0.1:8001     # API de agentes solo en la red de k3d (no en la LAN)
     volumes:
       - ./.kube/config:/run/phantom/kubeconfig:ro
       - ./infra/keys/phantom_ed25519:/run/phantom/phantom_ed25519:ro
