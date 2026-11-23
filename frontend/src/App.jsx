@@ -58,21 +58,96 @@ function Auditoria({ id, ir }) {
 }
 
 /* ---------- propuestas ---------- */
+// solo presentación: cómo se ve cada operación permitida
+const OP_VISTA = {
+  k8s_apply_segmentation: { tech: "kubernetes", nombre: "Segmentación" },
+  k8s_service_to_clusterip: { tech: "kubernetes", nombre: "BD a ClusterIP" },
+  pf_block_port: { tech: "freebsd", nombre: "Bloqueo PF" },
+};
+const opNombre = (p) => (p.operation === "pf_block_port" && p.params?.port
+  ? `Bloqueo PF :${p.params.port}` : OP_VISTA[p.operation]?.nombre || p.operation);
+
+function TarjetaPropuesta({ p, ir, i = 0, compacta }) {
+  return (
+    <button className={`pr-tarjeta ${p.status} ${compacta ? "compacta" : ""}`} style={{ animationDelay: `${i * 60}ms` }}
+      onClick={() => ir("propuesta", p.id)}>
+      <span className="pr-icono"><Tech n={OP_VISTA[p.operation]?.tech || "kubernetes"} size={compacta ? 18 : 24} /></span>
+      <span className="pr-cuerpo">
+        <span className="pr-meta"><span className="chip">{opNombre(p)}</span><Estado s={p.status} /></span>
+        <b className="pr-titulo">{p.title}</b>
+        {!compacta && p.expected_impact && <span className="pr-impacto">{p.expected_impact}</span>}
+        <span className="pr-pie">Auditoría #{p.audit} · {fecha(p.created_at)}</span>
+      </span>
+      <span className="pr-ir">{compacta ? "›" : <>Revisar <span>→</span></>}</span>
+    </button>
+  );
+}
+
 function Propuestas({ ir }) {
   const { data, error } = useLoad(() => api("proposals/"));
+  const lista = data || [];
+  const de = (estados) => lista.filter((p) => estados.includes(p.status));
+  const pendientes = de(["pending", "approved"]);
+  const decididas = de(["applied", "rolled_back", "failed", "rejected"]);
+  const viejas = de(["superseded"]);
+  const grupos = Object.entries(viejas.reduce((m, p) => ((m[p.audit] ||= []).push(p), m), {}))
+    .sort((a, b) => b[0] - a[0]);
+  const kpis = [
+    ["Pendientes", pendientes.length, "pending"], ["Aplicadas", de(["applied"]).length, "applied"],
+    ["Revertidas", de(["rolled_back"]).length, "rolled_back"], ["Reemplazadas", viejas.length, "superseded"],
+  ];
   return (
     <>
       <div className="cabeza"><div><h1>Propuestas</h1><p>Nada se aplica sin tu aprobación.</p></div></div>
       {error && <div className="alerta">{error}</div>}
-      <div className="panel">
-        {data?.length ? (
-          <table><thead><tr><th>#</th><th>Propuesta</th><th>Operación</th><th>Auditoría</th><th>Estado</th></tr></thead>
-            <tbody>{data.map((p) => (
-              <tr key={p.id} className="clic" onClick={() => ir("propuesta", p.id)}>
-                <td className="num">{p.id}</td><td>{p.title}</td><td className="num tenue">{p.operation}</td>
-                <td className="num">{p.audit}</td><td><Estado s={p.status} /></td></tr>))}
-            </tbody></table>) : <div className="vacio">Sin propuestas. Inicia una auditoría para generarlas.</div>}
-      </div>
+      {!data && !error && <div className="vacio">Cargando propuestas…</div>}
+      {data && !lista.length && <div className="panel vacio">Sin propuestas. Inicia una auditoría para generarlas.</div>}
+      {lista.length > 0 && (<>
+        <div className="pr-kpis">
+          {kpis.map(([t, v, s], i) => (
+            <div key={t} className={`pr-kpi ${s}`} style={{ animationDelay: `${i * 50}ms` }}>
+              <span className="pr-kpi-v">{v}</span><span className="pr-kpi-t">{t}</span>
+            </div>))}
+        </div>
+
+        <section className="pr-seccion">
+          <h3 className="pr-h"><span className="pr-punto pending" />Requieren tu decisión<span className="pr-n">{pendientes.length}</span></h3>
+          {pendientes.length
+            ? <div className="pr-grid">{pendientes.map((p, i) => <TarjetaPropuesta key={p.id} p={p} ir={ir} i={i} />)}</div>
+            : <div className="pr-aldia"><Ico n="check" />Todo al día: no hay cambios esperando aprobación.</div>}
+        </section>
+
+        {decididas.length > 0 && (
+          <section className="pr-seccion">
+            <h3 className="pr-h"><span className="pr-punto applied" />Decididas<span className="pr-n">{decididas.length}</span></h3>
+            <div className="pr-grid compacta">{decididas.map((p, i) => <TarjetaPropuesta key={p.id} p={p} ir={ir} i={i} compacta />)}</div>
+          </section>)}
+
+        {grupos.length > 0 && (
+          <section className="pr-seccion">
+            <h3 className="pr-h"><span className="pr-punto superseded" />Historial<span className="pr-n">{viejas.length}</span>
+              <span className="pr-h-nota">Propuestas reemplazadas por una auditoría más reciente</span></h3>
+            <div className="pr-historial">
+              {grupos.map(([audit, ps]) => (
+                <details key={audit} className="pr-grupo">
+                  <summary>
+                    <span className="pr-grupo-t">Auditoría #{audit}</span>
+                    <span className="pr-grupo-ops">{ps.map((p) => <Tech key={p.id} n={OP_VISTA[p.operation]?.tech || "kubernetes"} size={14} />)}</span>
+                    <span className="pr-grupo-n">{ps.length} reemplazada{ps.length > 1 ? "s" : ""}</span>
+                    <span className="pr-grupo-f">{fecha(ps[0].created_at)}</span>
+                    <span className="pr-flecha">›</span>
+                  </summary>
+                  <div className="pr-grupo-lista">
+                    {ps.map((p) => (
+                      <button key={p.id} className="pr-fila" onClick={() => ir("propuesta", p.id)}>
+                        <span className="num tenue">#{p.id}</span><span className="chip">{opNombre(p)}</span>
+                        <span className="pr-fila-t">{p.title}</span><span className="pr-ir">›</span>
+                      </button>))}
+                  </div>
+                </details>))}
+            </div>
+          </section>)}
+      </>)}
     </>
   );
 }

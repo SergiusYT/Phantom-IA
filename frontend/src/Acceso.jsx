@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api, auth } from "./api.js";
 import { Busy, Logo } from "./ui.jsx";
+import FondoAcceso from "./FondoAcceso.jsx";
 
 const ARRANQUE = [
   ["ok", "kubernetes", "API del clúster accesible · namespace phantom-demo"],
@@ -32,8 +33,13 @@ export default function Acceso({ onLogin, volver }) {
 
   return (
     <div className="acceso">
+      <FondoAcceso />
       <div className="lado">
         <button className="marca" onClick={volver} style={{ padding: 0 }}><Logo />PHANTOM AI</button>
+        <div className="acceso-lema">
+          <span className="acceso-kicker">Orquestación y seguridad de redes</span>
+          <h2>Tu red, vigilada por <em>agentes</em>.</h2>
+        </div>
         <div className="consola-arranque" aria-hidden="true">
           {ARRANQUE.slice(0, n).map(([k, m, t]) => (
             <div key={m}><span className={k}>[{k === "ok" ? " OK " : "ESPERA"}]</span> {m.padEnd(12, " ")} {t}</div>))}

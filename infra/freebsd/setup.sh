@@ -19,6 +19,7 @@ pfctl -nf /etc/pf.conf
 # 2. Canal restringido.
 mkdir -p /usr/local/sbin /usr/local/etc/rc.d
 install -m 0755 /tmp/phantom/phantom-pf /usr/local/sbin/phantom-pf
+[ -f /tmp/phantom/phantom-monitor ] && install -m 0755 /tmp/phantom/phantom-monitor /usr/local/sbin/phantom-monitor
 mkdir -p /var/db/phantom && touch /var/db/phantom/anchor.rules
 
 # 3. Servicio ficticio innecesario en 8081 (80/443 se reenvian a la aplicacion).
