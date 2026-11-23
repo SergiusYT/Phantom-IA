@@ -15,30 +15,34 @@ fail() { printf '  \e[31m✘\e[0m %s\n' "$*"; exit 1; }
 
 echo "PHANTOM AI: arranque"
 
-# 1. Modulos del kernel de VMware (faltan tras actualizar el kernel)
-if lsmod | grep -qw vmmon && lsmod | grep -qw vmnet; then ok "Modulos VMware cargados"
-else
-  fix "Modulos VMware ausentes: compilando/cargando (sudo)"
-  modinfo vmmon >/dev/null 2>&1 && modinfo vmnet >/dev/null 2>&1 \
-    || sudo vmware-modconfig --console --install-all >/dev/null || fail "vmware-modconfig fallo"
-  sudo modprobe -a vmmon vmnet || fail "No se pudieron cargar vmmon/vmnet"
-  ok "Modulos VMware cargados"
-fi
+if command -v vmrun >/dev/null 2>&1; then
+  # 1. Modulos del kernel de VMware (faltan tras actualizar el kernel)
+  if lsmod | grep -qw vmmon && lsmod | grep -qw vmnet; then ok "Modulos VMware cargados"
+  else
+    fix "Modulos VMware ausentes: compilando/cargando (sudo)"
+    modinfo vmmon >/dev/null 2>&1 && modinfo vmnet >/dev/null 2>&1 \
+      || sudo vmware-modconfig --console --install-all >/dev/null || fail "vmware-modconfig fallo"
+    sudo modprobe -a vmmon vmnet || fail "No se pudieron cargar vmmon/vmnet"
+    ok "Modulos VMware cargados"
+  fi
 
-# 2. Red virtual vmnet8 (NAT entre el host y la VM; no depende del wifi)
-if ip -br addr show vmnet8 2>/dev/null | grep -q '172\.16\.97\.1/'; then ok "Red vmnet8 activa"
-else
-  fix "Red vmnet8 caida: levantando redes VMware (sudo)"
-  sudo vmware-networks --start >/dev/null || fail "vmware-networks --start fallo"
-  ok "Red vmnet8 activa"
-fi
+  # 2. Red virtual vmnet8 (NAT entre el host y la VM; no depende del wifi)
+  if ip -br addr show vmnet8 2>/dev/null | grep -q '172\.16\.97\.1/'; then ok "Red vmnet8 activa"
+  else
+    fix "Red vmnet8 caida: levantando redes VMware (sudo)"
+    sudo vmware-networks --start >/dev/null || fail "vmware-networks --start fallo"
+    ok "Red vmnet8 activa"
+  fi
 
-# 3. VM FreeBSD (firewall)
-if vmrun list 2>/dev/null | grep -qF "$VMX"; then ok "VM FreeBSD encendida"
+  # 3. VM FreeBSD (firewall)
+  if vmrun list 2>/dev/null | grep -qF "$VMX"; then ok "VM FreeBSD encendida"
+  else
+    [ -f "$VMX" ] || fail "No encuentro la VM: $VMX (define PHANTOM_VMX)"
+    fix "Encendiendo VM FreeBSD"
+    vmrun start "$VMX" nogui >/dev/null 2>&1 || fail "vmrun start fallo"
+  fi
 else
-  [ -f "$VMX" ] || fail "No encuentro la VM: $VMX (define PHANTOM_VMX)"
-  fix "Encendiendo VM FreeBSD"
-  vmrun start "$VMX" nogui >/dev/null 2>&1 || fail "vmrun start fallo"
+  ok "Sin VMware: se asume que la VM FreeBSD ya esta encendida ($PF_HOST)"
 fi
 for i in $(seq 1 30); do nc -zw2 "$PF_HOST" 22 2>/dev/null && break; sleep 3; done
 nc -zw2 "$PF_HOST" 22 2>/dev/null && ok "Firewall alcanzable ($PF_HOST)" || fail "Firewall no responde en $PF_HOST:22"

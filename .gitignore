@@ -14,3 +14,5 @@ graphify-out/cache/
 .shots/
 .superpowers/
 build/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
