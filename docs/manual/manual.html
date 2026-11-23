@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual PHANTOM AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#fffdf7; --tinta:#1d2b2a; --suave:#5b6b69; --linea:#e6e1d3;
+  --verde:#16c79a; --verde-osc:#0b3d2e; --verde-claro:#dcf8ee;
+  --naranja:#ff9f1c; --naranja-claro:#fff1dc;
+  --rojo:#ef476f; --rojo-claro:#fde3ea;
+  --azul:#3a86ff; --azul-claro:#e2edff;
+  --amarillo:#ffd166; --amarillo-claro:#fff6dc;
+  --morado:#8338ec; --morado-claro:#efe5fd;
+}
+@page{ size:A4; margin:11mm 12mm 12mm; }
+@page :first{ margin:0; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{ margin:0; background:var(--fondo); color:var(--tinta); font:10.4pt/1.45 "Nunito",system-ui,sans-serif; }
+h1,h2,h3,h4{ font-family:"Fredoka","Nunito",sans-serif; line-height:1.15; margin:0; }
+p{ margin:0 0 8px; }
+b,strong{ font-weight:800; }
+.emo{ font-family:"Noto Color Emoji",sans-serif; font-style:normal; }
+.salto{ break-before:page; }
+.junto{ break-inside:avoid; }
+
+/* ---------- portada ---------- */
+.portada{ position:relative; width:210mm; height:297mm; overflow:hidden; color:#fff;
+  background:radial-gradient(120% 80% at 80% 10%, #1f7a5c 0%, #0b3d2e 45%, #04201a 100%); }
+.portada .rejilla{ position:absolute; inset:0; opacity:.13;
+  background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px); background-size:12mm 12mm; }
+.portada .burbuja-bg{ position:absolute; border-radius:50%; filter:blur(2px); }
+.portada .b1{ width:90mm; height:90mm; right:-25mm; top:-20mm; background:rgba(22,199,154,.28); }
+.portada .b2{ width:60mm; height:60mm; left:-18mm; bottom:40mm; background:rgba(255,159,28,.22); }
+.portada .cinta{ position:absolute; top:18mm; left:18mm; display:flex; gap:3mm; }
+.portada .cinta span{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.3); padding:1.5mm 4mm; border-radius:20mm; font:700 9.5pt "Nunito"; letter-spacing:.04em; }
+.portada .titulo{ position:absolute; left:18mm; top:40mm; width:120mm; }
+.portada .titulo .sobre{ font:700 12pt "Nunito"; color:var(--amarillo); letter-spacing:.18em; text-transform:uppercase; }
+.portada h1{ font-size:68pt; font-weight:700; letter-spacing:-.01em; margin-top:2mm; }
+.portada h1 em{ font-style:normal; color:var(--verde); }
+.portada .sub{ font:600 17pt/1.3 "Fredoka"; margin-top:4mm; color:#e9fff7; }
+.portada .sub mark{ background:var(--amarillo); color:var(--verde-osc); padding:0 2mm; border-radius:2mm; }
+.portada .fanti-grande{ position:absolute; right:14mm; top:34mm; width:70mm; transform:rotate(8deg); filter:drop-shadow(0 6mm 6mm rgba(0,0,0,.35)); }
+.portada .pantalla{ position:absolute; left:18mm; right:18mm; top:132mm; border-radius:4mm; overflow:hidden;
+  border:2mm solid #fff; box-shadow:0 8mm 18mm rgba(0,0,0,.45); transform:rotate(-2deg); background:#000; }
+.portada .pantalla img{ display:block; width:100%; }
+.portada .globo{ position:absolute; right:22mm; top:118mm; background:#fff; color:var(--verde-osc); font:700 12pt "Fredoka";
+  padding:3mm 5mm; border-radius:6mm; box-shadow:0 3mm 6mm rgba(0,0,0,.25); transform:rotate(4deg); z-index:2; }
+.portada .globo::after{ content:""; position:absolute; right:12mm; top:-3mm; border:3mm solid transparent; border-bottom-color:#fff; border-top:0; }
+.portada .pie{ position:absolute; left:18mm; right:18mm; bottom:16mm; display:flex; justify-content:space-between; align-items:flex-end; gap:6mm; }
+.portada .pie .chips{ display:flex; flex-wrap:wrap; gap:2.5mm; max-width:120mm; }
+.portada .pie .chips span{ background:#fff; color:var(--verde-osc); font:700 9.5pt "Nunito"; padding:1.5mm 3.5mm; border-radius:3mm; }
+.portada .pie .chips span .emo{ margin-right:1mm; }
+.portada .repo{ text-align:right; white-space:nowrap; font:600 9pt "Nunito"; color:#cfeee3; }
+.portada .repo b{ display:block; font:700 10.5pt "Fredoka"; color:#fff; }
+
+/* ---------- cabeceras de capítulo ---------- */
+.capitulo{ display:flex; align-items:center; gap:5mm; margin:0 0 4mm; padding:4mm 6mm; border-radius:5mm; color:#fff; }
+.capitulo .num{ font:700 30pt "Fredoka"; opacity:.9; min-width:14mm; }
+.capitulo h2{ font-size:22pt; font-weight:600; }
+.capitulo p{ margin:1mm 0 0; font-weight:600; opacity:.92; }
+.capitulo .ico{ margin-left:auto; font-size:30pt; }
+.c-verde{ background:linear-gradient(120deg,#0f9e79,#16c79a); }
+.c-azul{ background:linear-gradient(120deg,#2563eb,#3a86ff); }
+.c-naranja{ background:linear-gradient(120deg,#f17c00,#ff9f1c); }
+.c-morado{ background:linear-gradient(120deg,#6a1fd1,#8f4bf0); }
+.c-rojo{ background:linear-gradient(120deg,#d62f59,#ef476f); }
+.c-osc{ background:linear-gradient(120deg,#04201a,#0b3d2e); }
+
+h3{ font-size:14pt; font-weight:600; margin:3.5mm 0 2mm; color:var(--verde-osc); display:flex; align-items:center; gap:2.5mm; }
+h3 .paso{ display:inline-grid; place-items:center; width:8mm; height:8mm; border-radius:50%; background:var(--verde); color:#fff; font-size:11pt; }
+h4{ font-size:12pt; font-weight:600; margin:3mm 0 1.5mm; }
+
+/* ---------- Fanti dice ---------- */
+.fanti-dice{ display:flex; gap:4mm; align-items:flex-start; margin:3mm 0; break-inside:avoid; }
+.fanti-dice svg{ width:14mm; flex:none; }
+.fanti-dice .texto{ position:relative; background:var(--verde-claro); border:1.5px solid #9fe8cf; border-radius:4mm; padding:3mm 4.5mm; font-weight:600; }
+.fanti-dice .texto::before{ content:""; position:absolute; left:-3mm; top:5mm; border:3mm solid transparent; border-right-color:#9fe8cf; border-left:0; }
+.fanti-dice .texto b.quien{ display:block; font:700 10pt "Fredoka"; color:var(--verde-osc); letter-spacing:.04em; margin-bottom:.5mm; }
+.fanti-dice.alerta .texto{ background:var(--amarillo-claro); border-color:#f5cd6b; }
+.fanti-dice.alerta .texto::before{ border-right-color:#f5cd6b; }
+
+/* ---------- capturas ---------- */
+.captura{ position:relative; margin:2mm 0 1.5mm; border-radius:3mm; overflow:hidden; border:1.5px solid #cfd8d5; box-shadow:0 2mm 5mm rgba(11,61,46,.12); background:#0b1512; break-inside:avoid; }
+.captura .barra{ height:6mm; background:#e9eeec; display:flex; align-items:center; gap:1.6mm; padding:0 3mm; font:600 7.5pt "Nunito"; color:#6b7a77; }
+.captura .barra i{ width:2.4mm; height:2.4mm; border-radius:50%; display:inline-block; }
+.captura .barra i:nth-child(1){ background:#ff5f57; } .captura .barra i:nth-child(2){ background:#febc2e; } .captura .barra i:nth-child(3){ background:#28c840; }
+.captura .barra span{ margin-left:3mm; background:#fff; padding:.3mm 4mm; border-radius:2mm; }
+.captura .lienzo{ position:relative; }
+.captura img{ display:block; width:100%; }
+.marca{ position:absolute; transform:translate(-50%,-50%); width:7.5mm; height:7.5mm; border-radius:50%; background:var(--naranja); color:#fff;
+  font:700 11pt/7.5mm "Fredoka"; text-align:center; border:2px solid #fff; box-shadow:0 0 0 1.5mm rgba(255,159,28,.35), 0 1mm 2mm rgba(0,0,0,.4); }
+.pie-foto{ font-size:9pt; color:var(--suave); text-align:center; margin:0 0 3mm; font-style:italic; }
+.recorte{ overflow:hidden; }
+.dos{ display:grid; grid-template-columns:1fr 1fr; gap:4mm; }
+.dos .captura{ margin-top:0; }
+
+/* ---------- listas numeradas de la captura ---------- */
+.leyenda{ list-style:none; padding:0; margin:1.5mm 0 2mm; display:grid; gap:1.1mm; }
+.leyenda li{ display:flex; gap:3mm; align-items:flex-start; break-inside:avoid; }
+.leyenda li .n{ flex:none; width:6.5mm; height:6.5mm; border-radius:50%; background:var(--naranja); color:#fff; font:700 10pt/6.5mm "Fredoka"; text-align:center; margin-top:.3mm; }
+.leyenda.dos-col{ grid-template-columns:1fr 1fr; column-gap:6mm; }
+
+/* ---------- tarjetas ---------- */
+.tarjetas{ display:grid; grid-template-columns:repeat(2,1fr); gap:4mm; margin:3mm 0; }
+.tarjetas.tres{ grid-template-columns:repeat(3,1fr); }
+.tarjeta{ border-radius:4mm; padding:3mm 3.5mm; background:#fff; border:1.5px solid var(--linea); break-inside:avoid; position:relative; }
+.tarjeta .cara{ font-size:20pt; line-height:1; margin-bottom:2mm; }
+.tarjeta h4{ margin:0 0 1mm; }
+.tarjeta .es{ display:inline-block; font:700 8.5pt "Nunito"; padding:.5mm 2.5mm; border-radius:2mm; margin-bottom:1.5mm; }
+.tarjeta p{ font-size:10pt; margin:0; }
+.t-verde{ background:var(--verde-claro); border-color:#a5ead2; } .t-verde .es{ background:var(--verde); color:#fff; }
+.t-azul{ background:var(--azul-claro); border-color:#b5cfff; } .t-azul .es{ background:var(--azul); color:#fff; }
+.t-naranja{ background:var(--naranja-claro); border-color:#ffd29a; } .t-naranja .es{ background:var(--naranja); color:#fff; }
+.t-rojo{ background:var(--rojo-claro); border-color:#f7b3c4; } .t-rojo .es{ background:var(--rojo); color:#fff; }
+.t-morado{ background:var(--morado-claro); border-color:#d4bdf8; } .t-morado .es{ background:var(--morado); color:#fff; }
+.t-amarillo{ background:var(--amarillo-claro); border-color:#f5d98a; } .t-amarillo .es{ background:#e0a800; color:#fff; }
+
+/* ---------- caja de nota ---------- */
+.nota{ border-left:2mm solid var(--azul); background:var(--azul-claro); padding:3mm 4mm; border-radius:0 3mm 3mm 0; margin:3mm 0; break-inside:avoid; font-size:10.5pt; }
+.nota.ojo{ border-color:var(--rojo); background:var(--rojo-claro); }
+.nota.bien{ border-color:var(--verde); background:var(--verde-claro); }
+.nota b.t{ display:block; font:700 11pt "Fredoka"; margin-bottom:.5mm; }
+
+/* ---------- diagramas ---------- */
+.diagrama{ background:#fff; border:1.5px solid var(--linea); border-radius:4mm; padding:4mm; margin:3mm 0; break-inside:avoid; }
+.diagrama svg{ display:block; width:100%; height:auto; }
+.diagrama text{ font-family:"Nunito",sans-serif; }
+
+/* pasos del ciclo */
+.ciclo{ display:grid; grid-template-columns:repeat(3,1fr); gap:4mm; margin:3mm 0; }
+.ciclo .p{ position:relative; background:#fff; border:1.5px solid var(--linea); border-radius:4mm; padding:3.5mm; text-align:center; break-inside:avoid; }
+.ciclo .p .e{ font-size:22pt; }
+.ciclo .p .k{ position:absolute; top:-3mm; left:-2mm; width:8mm; height:8mm; border-radius:50%; color:#fff; font:700 11pt/8mm "Fredoka"; }
+.ciclo .p h4{ margin:1mm 0; }
+.ciclo .p p{ font-size:9.5pt; margin:0; color:var(--suave); }
+
+/* tablas */
+table{ width:100%; border-collapse:separate; border-spacing:0; margin:3mm 0; font-size:10pt; break-inside:avoid; }
+th{ background:var(--verde-osc); color:#fff; text-align:left; padding:2.2mm 3mm; font:600 10pt "Fredoka"; }
+th:first-child{ border-radius:3mm 0 0 0; } th:last-child{ border-radius:0 3mm 0 0; }
+td{ padding:2.2mm 3mm; border-bottom:1px solid var(--linea); background:#fff; vertical-align:top; }
+tr:nth-child(even) td{ background:#f7f5ee; }
+code,.cod{ font-family:"DejaVu Sans Mono",monospace; font-size:9pt; background:#eef2f0; padding:.3mm 1.5mm; border-radius:1.5mm; color:#0b3d2e; }
+.semaforo{ display:inline-block; width:3.5mm; height:3.5mm; border-radius:50%; vertical-align:-.4mm; margin-right:1.5mm; }
+
+/* índice */
+.indice{ columns:2; column-gap:8mm; margin-top:4mm; }
+.indice div{ display:flex; gap:3mm; align-items:baseline; padding:1.8mm 0; border-bottom:1.5px dashed var(--linea); break-inside:avoid; font-weight:700; }
+.indice div span.n{ font:700 12pt "Fredoka"; color:var(--verde); min-width:8mm; }
+.indice div span.e{ margin-left:auto; }
+
+/* checklist */
+.receta{ counter-reset:r; list-style:none; padding:0; margin:3mm 0; display:grid; gap:2.5mm; }
+.receta li{ counter-increment:r; display:flex; gap:3mm; align-items:center; background:#fff; border:1.5px solid var(--linea); border-radius:3mm; padding:2.5mm 3.5mm; break-inside:avoid; }
+.receta li::before{ content:counter(r); flex:none; width:8mm; height:8mm; border-radius:50%; background:var(--verde); color:#fff; font:700 12pt/8mm "Fredoka"; text-align:center; }
+.receta li .emo{ font-size:15pt; margin-left:auto; }
+
+.faq{ break-inside:avoid; margin:0 0 3.5mm; background:#fff; border:1.5px solid var(--linea); border-radius:3mm; padding:3mm 4mm; }
+.faq h4{ margin:0 0 1mm; color:var(--verde-osc); }
+.faq p{ margin:0; font-size:10pt; }
+
+.glosario{ display:grid; grid-template-columns:1fr 1fr; gap:3mm; }
+.glosario div{ background:#fff; border:1.5px solid var(--linea); border-radius:3mm; padding:2.5mm 3.5mm; break-inside:avoid; font-size:10pt; }
+.glosario b{ font:700 11pt "Fredoka"; color:var(--verde-osc); display:block; }
+
+/* contraportada */
+.final{ text-align:center; padding-top:8mm; }
+.final .qr{ width:48mm; margin:5mm auto; padding:3mm; background:#fff; border-radius:4mm; border:2px solid var(--verde); }
+.final .qr img{ width:100%; display:block; }
+.final .enlace{ display:inline-block; font:700 14pt "Fredoka"; background:var(--verde-osc); color:#fff; padding:3mm 7mm; border-radius:4mm; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="fanti" viewBox="0 0 120 140">
+      <path d="M60 6C30 6 12 30 12 60v62c0 6 6 9 11 5l9-8 10 9c3 3 8 3 11 0l7-7 7 7c3 3 8 3 11 0l10-9 9 8c5 4 11 1 11-5V60C108 30 90 6 60 6z" fill="#ffffff" stroke="#0b3d2e" stroke-width="5" stroke-linejoin="round"/>
+      <ellipse cx="44" cy="58" rx="8" ry="10" fill="#0b3d2e"/><ellipse cx="76" cy="58" rx="8" ry="10" fill="#0b3d2e"/>
+      <circle cx="47" cy="54" r="3" fill="#fff"/><circle cx="79" cy="54" r="3" fill="#fff"/>
+      <ellipse cx="34" cy="76" rx="7" ry="4" fill="#ff8fab" opacity=".75"/><ellipse cx="86" cy="76" rx="7" ry="4" fill="#ff8fab" opacity=".75"/>
+      <path d="M50 78q10 10 20 0" fill="none" stroke="#0b3d2e" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M60 6c-4 0-8 .5-11 1.5l4 10 7-5 7 5 4-10C68 6.5 64 6 60 6z" fill="#16c79a" stroke="#0b3d2e" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ================= PORTADA ================= -->
+<section class="portada">
+  <div class="rejilla"></div>
+  <div class="burbuja-bg b1"></div><div class="burbuja-bg b2"></div>
+  <div class="cinta"><span>REDES II</span><span>MANUAL DE USUARIO</span><span>2026</span></div>
+  <div class="titulo">
+    <div class="sobre">Manual para todos</div>
+    <h1>PHANTOM <em>AI</em></h1>
+    <div class="sub">Agentes de IA que cuidan tu red.<br><mark>Explicado tan fácil</mark> que cualquiera lo entiende.</div>
+  </div>
+  <svg class="fanti-grande"><use href="#fanti"/></svg>
+  <div class="globo">¡Hola! Yo te guío <span class="emo">👋</span></div>
+  <div class="pantalla"><img src="img/03-panel.jpg" alt="Panel de PHANTOM AI"></div>
+  <div class="pie">
+    <div class="chips">
+      <span><i class="emo">☸️</i>Kubernetes</span><span><i class="emo">😈</i>Firewall FreeBSD</span>
+      <span><i class="emo">🤖</i>4 agentes de IA</span><span><i class="emo">🧠</i>IA local Mistral</span><span><i class="emo">✅</i>Tú decides</span>
+    </div>
+    <div class="repo"><b>Código del proyecto</b>github.com/SergiusYT/Phantom-IA</div>
+  </div>
+</section>
+
+<!-- ================= BIENVENIDA + ÍNDICE ================= -->
+<section class="salto">
+  <div class="capitulo c-osc"><svg style="width:20mm"><use href="#fanti"/></svg><div><h2>¡Hola! Soy Fanti</h2><p>El fantasmita de PHANTOM. Te acompaño en todo el manual.</p></div></div>
+
+  <p style="font-size:12.5pt">Este manual es para <b>cualquier persona</b>, aunque nunca haya tocado una red ni un servidor. No necesitas saber programar. Solo necesitas saber usar un navegador (como Firefox o Chrome) y hacer clic.</p>
+
+  <div class="tarjetas tres">
+    <div class="tarjeta t-verde"><div class="cara emo">📖</div><h4>Léelo en orden</h4><p>Primero entiendes la idea, después ves cada pantalla.</p></div>
+    <div class="tarjeta t-naranja"><div class="cara emo">🟠</div><h4>Busca los círculos</h4><p>En las capturas, los <b>círculos naranjas con número</b> señalan dónde mirar.</p></div>
+    <div class="tarjeta t-azul"><div class="cara emo">👻</div><h4>Sigue a Fanti</h4><p>Cuando veas a Fanti, hay un consejo importante.</p></div>
+  </div>
+
+  <h3>¿Qué hay en este manual?</h3>
+  <div class="indice">
+    <div><span class="n">1</span>¿Qué es PHANTOM AI?<span class="e emo">💡</span></div>
+    <div><span class="n">2</span>Conoce al equipo<span class="e emo">🤖</span></div>
+    <div><span class="n">3</span>¿Cómo trabajan?<span class="e emo">🔄</span></div>
+    <div><span class="n">4</span>¿Por qué es seguro?<span class="e emo">🛡️</span></div>
+    <div><span class="n">5</span>Antes de empezar<span class="e emo">🔌</span></div>
+    <div><span class="n">6</span>Entrar al sistema<span class="e emo">🔑</span></div>
+    <div><span class="n">7</span>Panel general<span class="e emo">📊</span></div>
+    <div><span class="n">8</span>Orquestación en vivo<span class="e emo">📦</span></div>
+    <div><span class="n">9</span>Topología (el mapa)<span class="e emo">🗺️</span></div>
+    <div><span class="n">10</span>Conectividad<span class="e emo">📶</span></div>
+    <div><span class="n">11</span>Auditoría y Sala de agentes<span class="e emo">🕵️</span></div>
+    <div><span class="n">12</span>Auditorías e informes<span class="e emo">📋</span></div>
+    <div><span class="n">13</span>Propuestas: aprobar y aplicar<span class="e emo">✅</span></div>
+    <div><span class="n">14</span>Registro<span class="e emo">🗄️</span></div>
+    <div><span class="n">15</span>Simular la caída de un agente<span class="e emo">💥</span></div>
+    <div><span class="n">16</span>Modo observador<span class="e emo">👀</span></div>
+    <div><span class="n">17</span>Tu primera vez en 8 pasos<span class="e emo">🚀</span></div>
+    <div><span class="n">18</span>Colores y símbolos<span class="e emo">🚦</span></div>
+    <div><span class="n">19</span>¿Algo salió mal?<span class="e emo">🆘</span></div>
+    <div><span class="n">20</span>Palabras raras (glosario)<span class="e emo">📚</span></div>
+    <div><span class="n">21</span>Video y código del proyecto<span class="e emo">🎬</span></div>
+  </div>
+</section>
+
+<!-- ================= 1. QUÉ ES ================= -->
+<section class="salto">
+  <div class="capitulo c-verde"><span class="num">1</span><div><h2>¿Qué es PHANTOM AI?</h2><p>La idea completa en un minuto.</p></div><span class="ico emo">💡</span></div>
+
+  <div class="nota bien" style="font-size:13pt"><b class="t">En una frase</b>PHANTOM AI es un sistema con <b>4 robots de inteligencia artificial</b> que revisan una red de computadores, <b>encuentran problemas de seguridad</b> y <b>proponen cómo arreglarlos</b>. Pero nada se arregla hasta que <b>una persona dice "sí"</b>.</div>
+
+  <h3>Imagina un edificio <span class="emo">🏢</span></h3>
+  <p>La forma más fácil de entender PHANTOM es pensar en un edificio de apartamentos:</p>
+
+  <div class="diagrama">
+    <svg viewBox="0 0 760 330" style="max-height:50mm">
+      <defs><marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6b69"/></marker></defs>
+      <!-- internet -->
+      <circle cx="70" cy="150" r="48" fill="#e2edff" stroke="#3a86ff" stroke-width="3"/>
+      <text x="70" y="162" text-anchor="middle" font-size="40" class="emo">🌍</text>
+      <text x="70" y="222" text-anchor="middle" font-size="15" font-weight="800" fill="#1d2b2a">Internet</text>
+      <text x="70" y="240" text-anchor="middle" font-size="12" fill="#5b6b69">la calle</text>
+      <line x1="122" y1="150" x2="198" y2="150" stroke="#5b6b69" stroke-width="3" marker-end="url(#fl)"/>
+      <!-- portero -->
+      <rect x="205" y="95" width="120" height="115" rx="18" fill="#fde3ea" stroke="#ef476f" stroke-width="3"/>
+      <text x="265" y="150" text-anchor="middle" font-size="42" class="emo">💂</text>
+      <text x="265" y="182" text-anchor="middle" font-size="14" font-weight="800">Portero</text>
+      <text x="265" y="199" text-anchor="middle" font-size="11.5" fill="#5b6b69">Firewall FreeBSD</text>
+      <line x1="330" y1="150" x2="388" y2="150" stroke="#5b6b69" stroke-width="3" marker-end="url(#fl)"/>
+      <!-- edificio -->
+      <rect x="395" y="30" width="230" height="250" rx="18" fill="#dcf8ee" stroke="#16c79a" stroke-width="3" stroke-dasharray="8 5"/>
+      <text x="510" y="58" text-anchor="middle" font-size="14" font-weight="800" fill="#0b3d2e">Edificio = Kubernetes ☸️</text>
+      <rect x="420" y="75" width="180" height="50" rx="10" fill="#fff" stroke="#16c79a" stroke-width="2"/>
+      <text x="445" y="108" font-size="22" class="emo">🖥️</text><text x="478" y="98" font-size="13" font-weight="800">Apto. Web</text><text x="478" y="114" font-size="11" fill="#5b6b69">la página que ves</text>
+      <rect x="420" y="135" width="180" height="50" rx="10" fill="#fff" stroke="#16c79a" stroke-width="2"/>
+      <text x="445" y="168" font-size="22" class="emo">⚙️</text><text x="478" y="158" font-size="13" font-weight="800">Apto. API</text><text x="478" y="174" font-size="11" fill="#5b6b69">el que hace las cuentas</text>
+      <rect x="420" y="195" width="180" height="50" rx="10" fill="#fff" stroke="#16c79a" stroke-width="2"/>
+      <text x="445" y="228" font-size="22" class="emo">🗃️</text><text x="478" y="218" font-size="13" font-weight="800">Apto. Datos</text><text x="478" y="234" font-size="11" fill="#5b6b69">la caja fuerte</text>
+      <!-- robots -->
+      <rect x="650" y="60" width="95" height="120" rx="16" fill="#fff6dc" stroke="#e0a800" stroke-width="3"/>
+      <text x="697" y="110" text-anchor="middle" font-size="34" class="emo">🤖</text>
+      <text x="697" y="138" text-anchor="middle" font-size="13" font-weight="800">4 vigilantes</text>
+      <text x="697" y="155" text-anchor="middle" font-size="11" fill="#5b6b69">agentes de IA</text>
+      <line x1="648" y1="120" x2="630" y2="120" stroke="#e0a800" stroke-width="3" stroke-dasharray="4 4"/>
+      <!-- jefe -->
+      <rect x="650" y="200" width="95" height="100" rx="16" fill="#efe5fd" stroke="#8338ec" stroke-width="3"/>
+      <text x="697" y="245" text-anchor="middle" font-size="34" class="emo">🧑‍💼</text>
+      <text x="697" y="275" text-anchor="middle" font-size="13" font-weight="800">Tú, el jefe</text>
+      <text x="697" y="291" text-anchor="middle" font-size="11" fill="#5b6b69">dices sí o no</text>
+      <line x1="697" y1="182" x2="697" y2="198" stroke="#8338ec" stroke-width="3" marker-end="url(#fl)"/>
+    </svg>
+  </div>
+
+  <div class="tarjetas">
+    <div class="tarjeta t-rojo"><div class="cara emo">💂</div><span class="es">Firewall FreeBSD</span><h4>El portero</h4><p>Está en la puerta. Decide quién entra desde la calle (Internet) y por qué puerta. Si deja una puerta abierta que no se usa, es peligroso.</p></div>
+    <div class="tarjeta t-verde"><div class="cara emo">🏢</div><span class="es">Kubernetes</span><h4>El edificio y su administrador</h4><p>Guarda las aplicaciones en "apartamentos" y las mantiene funcionando. Si una se cae, la vuelve a levantar sola.</p></div>
+    <div class="tarjeta t-amarillo"><div class="cara emo">🤖</div><span class="es">Agentes de IA</span><h4>Los vigilantes</h4><p>Cuatro robots que recorren el edificio, revisan todo y escriben un informe con lo que está mal y cómo arreglarlo.</p></div>
+    <div class="tarjeta t-morado"><div class="cara emo">🧑‍💼</div><span class="es">Tú (operador)</span><h4>El jefe</h4><p>Lees lo que proponen los vigilantes y decides: <b>aprobar</b> o <b>rechazar</b>. Sin tu "sí", nada cambia.</p></div>
+  </div>
+
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">FANTI DICE</b>¿Para qué sirve todo esto? Para que una red sea <b>más segura sin que tengas que ser experto</b>. Los robots hacen el trabajo difícil de revisar; tú solo tomas la decisión final.</div></div>
+</section>
+
+<!-- ================= 2. EQUIPO ================= -->
+<section class="salto">
+  <div class="capitulo c-naranja"><span class="num">2</span><div><h2>Conoce al equipo</h2><p>Cada pieza del sistema, como si fuera una persona.</p></div><span class="ico emo">🤖</span></div>
+
+  <h3>Los 4 agentes (los robots vigilantes)</h3>
+  <p>Cada agente tiene un solo trabajo. Trabajan en fila, como en una cadena: uno le pasa su resultado al siguiente.</p>
+  <div class="tarjetas">
+    <div class="tarjeta t-verde"><div class="cara emo">📡</div><span class="es">Agente 1</span><h4>Recolector: "el que mira"</h4><p>Da una vuelta por todo: mira las aplicaciones, mira las reglas del portero y prueba qué puertas abren y cuáles no. Junta toda esa información.</p></div>
+    <div class="tarjeta t-morado"><div class="cara emo">🩺</div><span class="es">Agente 2</span><h4>Analista: "el doctor"</h4><p>Revisa si algo está <b>enfermo</b>: una aplicación caída, una que se reinicia mucho, un servicio que no responde. Dice la causa probable.</p></div>
+    <div class="tarjeta t-naranja"><div class="cara emo">🕵️</div><span class="es">Agente 3</span><h4>Auditor: "el detective"</h4><p>Busca <b>peligros de seguridad</b>: puertas abiertas de más, la caja fuerte a la vista, aplicaciones que se hablan sin permiso.</p></div>
+    <div class="tarjeta t-amarillo"><div class="cara emo">📐</div><span class="es">Agente 4</span><h4>Planificador: "el arquitecto"</h4><p>Toma los problemas encontrados y <b>escribe el plan para arreglarlos</b>, explicando por qué funciona cada cambio.</p></div>
+  </div>
+
+  <h3>Los ayudantes</h3>
+  <div class="tarjetas tres">
+    <div class="tarjeta t-azul"><div class="cara emo">🧠</div><span class="es">IA local (Mistral)</span><h4>El cerebro</h4><p>Una inteligencia artificial que vive dentro del sistema (no en Internet). Ayuda a los agentes a <b>explicar</b> las cosas en palabras.</p></div>
+    <div class="tarjeta t-rojo"><div class="cara emo">🔐</div><span class="es">Controlador seguro</span><h4>El de las llaves</h4><p>El único que puede hacer cambios. Pero solo hace los cambios de una <b>lista permitida</b> y solo si tú los aprobaste.</p></div>
+    <div class="tarjeta t-verde"><div class="cara emo">🧭</div><span class="es">Coordinador</span><h4>El jefe de turno</h4><p>Despierta a cada agente en el momento justo, le pasa la información y cierra la auditoría al final.</p></div>
+  </div>
+
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">FANTI DICE</b>Un truco para recordarlo: <b>mira <span class="emo">📡</span> → revisa la salud <span class="emo">🩺</span> → busca peligros <span class="emo">🕵️</span> → hace el plan <span class="emo">📐</span> → tú decides <span class="emo">🧑‍💼</span></b>.</div></div>
+
+  <div class="nota"><b class="t">¿Los robots duermen? <span class="emo">😴</span></b>¡Sí! Los agentes <b>no están encendidos todo el tiempo</b>. Kubernetes los "despierta" cuando pides una auditoría, cada uno hace su trabajo y luego desaparece. Así no gastan recursos ni quedan expuestos. En la pantalla verás "Dormido: nace al auditar".</div>
+</section>
+
+<!-- ================= 3. CÓMO TRABAJAN ================= -->
+<section class="salto">
+  <div class="capitulo c-azul"><span class="num">3</span><div><h2>¿Cómo trabajan?</h2><p>De "revisa mi red" a "listo, arreglado y comprobado".</p></div><span class="ico emo">🔄</span></div>
+
+  <p>Cada vez que presionas <b>Iniciar auditoría</b>, pasa esto, siempre en el mismo orden:</p>
+  <div class="ciclo">
+    <div class="p"><span class="k" style="background:#16c79a">1</span><div class="e emo">📡</div><h4>Recolecta</h4><p>El recolector mira la red y prueba las puertas.</p></div>
+    <div class="p"><span class="k" style="background:#8338ec">2</span><div class="e emo">🩺</div><h4>Analiza</h4><p>El analista busca cosas rotas o enfermas.</p></div>
+    <div class="p"><span class="k" style="background:#ff9f1c">3</span><div class="e emo">🕵️</div><h4>Audita</h4><p>El auditor busca peligros de seguridad.</p></div>
+    <div class="p"><span class="k" style="background:#e0a800">4</span><div class="e emo">📐</div><h4>Propone</h4><p>El planificador escribe cómo arreglar cada cosa.</p></div>
+    <div class="p"><span class="k" style="background:#3a86ff">5</span><div class="e emo">🧑‍💼</div><h4>Tú apruebas</h4><p>Lees la propuesta y dices sí o no.</p></div>
+    <div class="p"><span class="k" style="background:#ef476f">6</span><div class="e emo">🔧</div><h4>Aplica y comprueba</h4><p>El controlador hace el cambio y prueba que todo siga funcionando.</p></div>
+  </div>
+  <p style="font-size:10pt;color:var(--suave)">Los pasos 2 y 3 ocurren al mismo tiempo: el doctor y el detective trabajan en paralelo para ir más rápido.</p>
+
+  <h3>¿Y si el arreglo sale mal? <span class="emo">↩️</span></h3>
+  <div class="diagrama">
+    <svg viewBox="0 0 760 170">
+      <defs><marker id="fl2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6b69"/></marker></defs>
+      <g font-size="13" font-weight="800" text-anchor="middle">
+        <rect x="10" y="40" width="130" height="80" rx="14" fill="#efe5fd" stroke="#8338ec" stroke-width="2.5"/><text x="75" y="75" font-size="26" class="emo">💾</text><text x="75" y="105">1. Guarda copia</text>
+        <rect x="190" y="40" width="130" height="80" rx="14" fill="#fff1dc" stroke="#ff9f1c" stroke-width="2.5"/><text x="255" y="75" font-size="26" class="emo">🔧</text><text x="255" y="105">2. Hace el cambio</text>
+        <rect x="370" y="40" width="130" height="80" rx="14" fill="#e2edff" stroke="#3a86ff" stroke-width="2.5"/><text x="435" y="75" font-size="26" class="emo">🧪</text><text x="435" y="105">3. Prueba todo</text>
+        <rect x="560" y="5" width="190" height="62" rx="14" fill="#dcf8ee" stroke="#16c79a" stroke-width="2.5"/><text x="655" y="32" font-size="20" class="emo">✅</text><text x="655" y="56">Todo bien: se queda</text>
+        <rect x="560" y="95" width="190" height="62" rx="14" fill="#fde3ea" stroke="#ef476f" stroke-width="2.5"/><text x="655" y="122" font-size="20" class="emo">↩️</text><text x="655" y="146">Algo falló: lo deshace solo</text>
+      </g>
+      <line x1="142" y1="80" x2="186" y2="80" stroke="#5b6b69" stroke-width="3" marker-end="url(#fl2)"/>
+      <line x1="322" y1="80" x2="366" y2="80" stroke="#5b6b69" stroke-width="3" marker-end="url(#fl2)"/>
+      <line x1="502" y1="70" x2="556" y2="40" stroke="#16c79a" stroke-width="3" marker-end="url(#fl2)"/>
+      <line x1="502" y1="90" x2="556" y2="122" stroke="#ef476f" stroke-width="3" marker-end="url(#fl2)"/>
+    </svg>
+  </div>
+
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">LA REGLA DE ORO</b>La inteligencia artificial <b>explica</b>, pero <b>no decide</b>. Los problemas se detectan con reglas fijas y cada cambio necesita <b>tu aprobación</b>. Aunque la IA dijera algo raro, los resultados serían los mismos.</div></div>
+</section>
+
+<!-- ================= 4. POR QUÉ ES SEGURO ================= -->
+<section class="salto">
+  <div class="capitulo c-rojo"><span class="num">4</span><div><h2>¿Por qué es seguro?</h2><p>Un sistema que cuida la red no puede ser un peligro él mismo.</p></div><span class="ico emo">🛡️</span></div>
+  <div class="tarjetas">
+    <div class="tarjeta t-verde"><div class="cara emo">👓</div><h4>Los robots solo miran</h4><p>Los agentes tienen "llaves de solo lectura". Pueden ver, pero <b>no pueden cambiar nada</b>, aunque quisieran.</p></div>
+    <div class="tarjeta t-azul"><div class="cara emo">📃</div><h4>Lista de cambios permitidos</h4><p>Solo existen 3 tipos de arreglo posibles. Cualquier otra orden se ignora.</p></div>
+    <div class="tarjeta t-morado"><div class="cara emo">✋</div><h4>Una persona siempre decide</h4><p>Nada se aplica sin que un operador lo apruebe. Queda guardado quién y cuándo.</p></div>
+    <div class="tarjeta t-naranja"><div class="cara emo">💾</div><h4>Siempre hay copia</h4><p>Antes de cambiar algo, se guarda cómo estaba. Si hace falta, se puede volver atrás con un clic.</p></div>
+    <div class="tarjeta t-rojo"><div class="cara emo">🚪</div><h4>La puerta de mantenimiento nunca se cierra</h4><p>El puerto 22 (por donde se administra el portero) está protegido: PHANTOM nunca lo bloquea, para no quedarse afuera.</p></div>
+    <div class="tarjeta t-amarillo"><div class="cara emo">🏠</div><h4>La IA vive en casa</h4><p>El cerebro (Mistral) corre dentro del sistema. La información de la red <b>no sale a Internet</b>.</p></div>
+  </div>
+
+  <h3>Los 3 arreglos que PHANTOM sabe hacer</h3>
+  <table>
+    <tr><th>Arreglo</th><th>En palabras sencillas</th><th>¿Cómo comprueba que sirvió?</th></tr>
+    <tr><td><span class="emo">🧱</span> <b>Segmentación</b></td><td>Pone paredes entre apartamentos: la Web solo habla con la API, y la API solo con los Datos.</td><td>Web→API funciona, API→Datos funciona, Web→Datos queda bloqueado.</td></tr>
+    <tr><td><span class="emo">🙈</span> <b>Esconder la base de datos</b></td><td>La caja fuerte deja de verse desde fuera del edificio.</td><td>La API sigue llegando a los datos.</td></tr>
+    <tr><td><span class="emo">🚪</span> <b>Cerrar una puerta del firewall</b></td><td>El portero cierra una puerta que estaba abierta sin necesidad (ej. la 8081).</td><td>Esa puerta queda cerrada; las de la página (80 y 443) siguen abiertas.</td></tr>
+  </table>
+</section>
+
+<!-- ================= 5. ANTES DE EMPEZAR ================= -->
+<section class="salto">
+  <div class="capitulo c-osc"><span class="num">5</span><div><h2>Antes de empezar</h2><p>Encender el sistema y saber con qué usuario entrar.</p></div><span class="ico emo">🔌</span></div>
+
+  <h3><span class="paso">1</span>Enciende todo (lo hace el encargado técnico)</h3>
+  <p>PHANTOM necesita que estén prendidas sus piezas: la máquina virtual con el firewall FreeBSD, el "edificio" Kubernetes y la plataforma. Para no hacerlo a mano, hay <b>un solo comando</b> que revisa y enciende todo en orden:</p>
+  <div class="nota"><b class="t">En la terminal, dentro de la carpeta del proyecto:</b><code>make up</code><br><span style="font-size:9.5pt">Va mostrando una lista con <b style="color:#0f9e79">✔</b> verdes a medida que cada pieza queda lista y abre el navegador al final.</span></div>
+
+  <div class="diagrama">
+    <svg viewBox="0 0 760 120">
+      <g font-size="12" font-weight="800" text-anchor="middle">
+        <rect x="5" y="20" width="135" height="80" rx="12" fill="#fde3ea" stroke="#ef476f" stroke-width="2"/><text x="72" y="55" font-size="24" class="emo">😈</text><text x="72" y="85">Máquina virtual</text>
+        <rect x="160" y="20" width="135" height="80" rx="12" fill="#dcf8ee" stroke="#16c79a" stroke-width="2"/><text x="227" y="55" font-size="24" class="emo">☸️</text><text x="227" y="85">Kubernetes</text>
+        <rect x="315" y="20" width="135" height="80" rx="12" fill="#fff6dc" stroke="#e0a800" stroke-width="2"/><text x="382" y="55" font-size="24" class="emo">🤖</text><text x="382" y="85">Agentes e IA</text>
+        <rect x="470" y="20" width="135" height="80" rx="12" fill="#e2edff" stroke="#3a86ff" stroke-width="2"/><text x="537" y="55" font-size="24" class="emo">🖥️</text><text x="537" y="85">Plataforma web</text>
+        <rect x="625" y="20" width="130" height="80" rx="12" fill="#efe5fd" stroke="#8338ec" stroke-width="2"/><text x="690" y="55" font-size="24" class="emo">🦊</text><text x="690" y="85">Abre Firefox</text>
+      </g>
+      <g stroke="#5b6b69" stroke-width="3"><line x1="140" y1="60" x2="160" y2="60"/><line x1="295" y1="60" x2="315" y2="60"/><line x1="450" y1="60" x2="470" y2="60"/><line x1="605" y1="60" x2="625" y2="60"/></g>
+    </svg>
+  </div>
+
+  <h3><span class="paso">2</span>Abre la página</h3>
+  <p>En el navegador escribe esta dirección y presiona Enter:</p>
+  <p style="text-align:center;margin:3mm 0"><span class="enlace" style="display:inline-block;font:700 15pt 'Fredoka';background:#0b3d2e;color:#fff;padding:2.5mm 7mm;border-radius:4mm">http://localhost:8088</span></p>
+
+  <h3><span class="paso">3</span>Elige con qué usuario entrar</h3>
+  <table>
+    <tr><th>Usuario</th><th>Contraseña</th><th>¿Qué puede hacer?</th></tr>
+    <tr><td><span class="emo">👑</span> <b>admin</b></td><td><code>phantom-admin</code></td><td><b>Operador.</b> Ve todo, inicia auditorías, <b>aprueba, ejecuta y revierte</b> cambios.</td></tr>
+    <tr><td><span class="emo">👀</span> <b>observador</b></td><td><code>phantom-viewer</code></td><td><b>Solo mirar.</b> Ve todas las pantallas, pero no puede aprobar ni cambiar nada.</td></tr>
+  </table>
+  <div class="fanti-dice alerta"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">OJO</b>Estas contraseñas son del <b>laboratorio de clase</b>. PHANTOM está hecho para una red de práctica aislada; no se debe conectar a una red real de una empresa sin cambiar las contraseñas.</div></div>
+</section>
+
+<!-- ================= 6. ENTRAR ================= -->
+<section class="salto">
+  <div class="capitulo c-verde"><span class="num">6</span><div><h2>Entrar al sistema</h2><p>La portada, el inicio de sesión y cómo está organizada la pantalla.</p></div><span class="ico emo">🔑</span></div>
+
+  <h3>La portada</h3>
+  <p>Es lo primero que ves. Explica en pocas palabras qué hace PHANTOM y muestra un dibujo animado del tráfico pasando por el firewall.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>localhost:8088</span></div><div class="lienzo"><img src="img/01-portada.jpg">
+    <span class="marca" style="left:12%;top:52%">1</span><span class="marca" style="left:27%;top:52%">2</span><span class="marca" style="left:75%;top:28%">3</span><span class="marca" style="left:50%;top:76%">4</span></div></div>
+  <ol class="leyenda dos-col">
+    <li><span class="n">1</span><span><b>Abrir la consola:</b> el botón para entrar al sistema.</span></li>
+    <li><span class="n">2</span><span><b>Cómo funciona:</b> baja a una explicación de los pasos.</span></li>
+    <li><span class="n">3</span><span><b>Dibujo en vivo:</b> el tráfico pasa por el firewall; lo rojo es lo bloqueado.</span></li>
+    <li><span class="n">4</span><span><b>Las 3 piezas:</b> Kubernetes, Firewall FreeBSD y Agentes de IA.</span></li>
+  </ol>
+
+  <h3>Iniciar sesión</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>localhost:8088 · Iniciar sesión</span></div><div class="lienzo"><img src="img/02-acceso-lleno.jpg">
+    <span class="marca" style="left:71%;top:45.5%">1</span><span class="marca" style="left:71%;top:55.5%">2</span><span class="marca" style="left:71%;top:64%">3</span><span class="marca" style="left:71%;top:70%">4</span><span class="marca" style="left:3%;top:79%">5</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span>Escribe tu <b>usuario</b> (por ejemplo <code>admin</code>).</span></li>
+    <li><span class="n">2</span><span>Escribe tu <b>contraseña</b>. Se ve con puntitos para que nadie la lea.</span></li>
+    <li><span class="n">3</span><span>Haz clic en <b>Entrar a la consola</b>.</span></li>
+    <li><span class="n">4</span><span>Recordatorio de los dos usuarios de prueba.</span></li>
+    <li><span class="n">5</span><span>Lista que muestra que cada pieza está lista (<b>[ OK ]</b>). Si dice usuario o contraseña incorrectos, revisa mayúsculas y vuelve a intentar.</span></li>
+  </ol>
+</section>
+
+<section class="salto">
+  <h3>Así se organiza la pantalla <span class="emo">🧭</span></h3>
+  <p>Después de entrar, todas las pantallas tienen la misma forma. Apréndela una vez y ya sabes moverte por todo:</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>localhost:8088/#/panel</span></div><div class="lienzo"><img src="img/03-panel.jpg">
+    <span class="marca" style="left:2%;top:24%">1</span><span class="marca" style="left:2%;top:47%">2</span><span class="marca" style="left:17.5%;top:2.2%">3</span><span class="marca" style="left:96%;top:2.2%">4</span><span class="marca" style="left:2%;top:70%">5</span><span class="marca" style="left:2%;top:74%">6</span><span class="marca" style="left:2%;top:88%">7</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Menú "Supervisión":</b> pantallas para <b>mirar</b> cómo está la red (Panel general, Orquestación en vivo, Topología, Conectividad).</span></li>
+    <li><span class="n">2</span><span><b>Menú "Seguridad":</b> pantallas de los <b>agentes y sus resultados</b> (Sala de agentes, Auditorías, Propuestas, Registro). El número naranja dice cuántas propuestas esperan tu decisión.</span></li>
+    <li><span class="n">3</span><span><b>Barra de luces:</b> Kubernetes, Firewall, IA local y Docker. <span class="semaforo" style="background:#16c79a"></span>verde = funciona, <span class="semaforo" style="background:#ef476f"></span>rojo = algo no responde.</span></li>
+    <li><span class="n">4</span><span><b>Reloj</b> con la hora actual.</span></li>
+    <li><span class="n">5</span><span><b>Iniciar auditoría:</b> el botón más importante. Despierta a los agentes para que revisen la red.</span></li>
+    <li><span class="n">6</span><span><b>Simular la caída de un agente:</b> una prueba para ver cómo Kubernetes recupera a un robot que falla (capítulo 15).</span></li>
+    <li><span class="n">7</span><span><b>Tu usuario</b> y tu rol, y el botón <b>Cerrar sesión</b>.</span></li>
+  </ol>
+</section>
+
+<!-- ================= 7. PANEL ================= -->
+<section class="salto">
+  <div class="capitulo c-azul"><span class="num">7</span><div><h2>Panel general</h2><p>"¿Cómo está mi red ahora?" en una sola mirada.</p></div><span class="ico emo">📊</span></div>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Panel general</span></div><div class="lienzo"><img src="img/03-panel.jpg">
+    <span class="marca" style="left:22%;top:20%">1</span><span class="marca" style="left:33%;top:31%">2</span><span class="marca" style="left:65.5%;top:22%">3</span><span class="marca" style="left:82.5%;top:22%">4</span><span class="marca" style="left:65.5%;top:39.5%">5</span><span class="marca" style="left:82.5%;top:39.5%">6</span><span class="marca" style="left:22%;top:59%">7</span><span class="marca" style="left:61%;top:59%">8</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Postura de seguridad:</b> una nota de <b>0 a 100</b>, como en el colegio. Más alta = más segura. Aquí sale <b>17</b>: la red tiene problemas importantes.</span></li>
+    <li><span class="n">2</span><span><b>Problemas por gravedad:</b> <span style="color:#ef476f;font-weight:800">Crítica</span>, <span style="color:#f17c00;font-weight:800">Alta</span>, <span style="color:#c99400;font-weight:800">Media</span> y <span style="color:#3a86ff;font-weight:800">Baja</span>, con cuántos hay de cada una.</span></li>
+    <li><span class="n">3</span><span><b>Aplicaciones activas:</b> cuántas están funcionando (3 de 3) y en cuántos computadores (nodos).</span></li>
+    <li><span class="n">4</span><span><b>Firewall:</b> si el portero está activo y cuántas reglas tiene.</span></li>
+    <li><span class="n">5</span><span><b>Expuestos a internet:</b> cuántas cosas se pueden alcanzar desde fuera. Lo ideal es pocas.</span></li>
+    <li><span class="n">6</span><span><b>Por aprobar:</b> arreglos esperando tu decisión.</span></li>
+    <li><span class="n">7</span><span><b>Evolución de la postura:</b> cómo ha cambiado la nota en cada auditoría. Si sube, ¡vas bien!</span></li>
+    <li><span class="n">8</span><span><b>Memoria por aplicación:</b> cuánta memoria usa cada una, en vivo.</span></li>
+  </ol>
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">FANTI DICE</b>Si bajas en esta pantalla verás más cuadros: <b>"Quién puede hablar con quién"</b> (con un botón <b>Probar ahora</b>), las <b>decisiones sobre propuestas</b> y el estado de las aplicaciones y del firewall.</div></div>
+</section>
+
+<section class="salto">
+  <h3>Más abajo en el Panel</h3>
+  <div class="captura recorte" style="max-height:200mm"><div class="barra"><i></i><i></i><i></i><span>Panel general (página completa)</span></div><div class="lienzo"><img src="img/03-panel-completo.jpg"></div></div>
+  <p class="pie-foto">El Panel completo: arriba el resumen, abajo las pruebas de conexión, las decisiones y el detalle de aplicaciones y firewall.</p>
+</section>
+
+<!-- ================= 8. ORQUESTACIÓN ================= -->
+<section class="salto">
+  <div class="capitulo c-verde"><span class="num">8</span><div><h2>Orquestación en vivo</h2><p>"¿Qué está corriendo ahora y dónde?"</p></div><span class="ico emo">📦</span></div>
+  <p>Esta pantalla muestra <b>todas las cajas</b> donde viven las aplicaciones, unas dentro de otras, como muñecas rusas <span class="emo">🪆</span>: Docker contiene a Kubernetes, y Kubernetes contiene a las aplicaciones y a los agentes.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Orquestación en vivo</span></div><div class="lienzo"><img src="img/04-orquestacion.jpg">
+    <span class="marca" style="left:20%;top:23%">1</span><span class="marca" style="left:20%;top:36%">2</span><span class="marca" style="left:22%;top:48%">3</span><span class="marca" style="left:22%;top:60%">4</span><span class="marca" style="left:22%;top:93%">5</span><span class="marca" style="left:74%;top:23%">6</span><span class="marca" style="left:74%;top:61%">7</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Docker:</b> la caja más grande. Aquí corren las partes de PHANTOM (Panel, Backend, Base de datos, Proxy).</span></li>
+    <li><span class="n">2</span><span><b>Kubernetes:</b> el "edificio". Funciona dentro de 3 contenedores de Docker.</span></li>
+    <li><span class="n">3</span><span><b>Aplicaciones:</b> API, Base de datos y Web, con cuántas copias tiene cada una (1 de 1 = todo bien).</span></li>
+    <li><span class="n">4</span><span><b>Agentes IA:</b> los 4 robots. Cuando no hay auditoría dicen "Dormido: nace al auditar". La <b>IA local (Mistral)</b> siempre está encendida.</span></li>
+    <li><span class="n">5</span><span><b>Nodos:</b> los "computadores" de Kubernetes (nodo de control y nodo de trabajo), con su memoria y procesador.</span></li>
+    <li><span class="n">6</span><span><b>Experimentos:</b> botones para jugar con Kubernetes y ver cómo reacciona.</span></li>
+    <li><span class="n">7</span><span><b>Actividad:</b> lo último que pasó, con la hora (por ejemplo, "Web en marcha").</span></li>
+  </ol>
+  <div class="tarjetas">
+    <div class="tarjeta t-azul"><div class="cara emo">🐍🐍🐍</div><h4>"Crear 3 copias de la API"</h4><p>Simula que llega mucha gente. Kubernetes crea 3 copias de la API y las reparte entre los computadores. Si lo presionas otra vez, vuelve a 1.</p></div>
+    <div class="tarjeta t-rojo"><div class="cara emo">💥➡️🆙</div><h4>"Apagar la Web"</h4><p>Simula que una aplicación se cae. Mira cómo <b>Kubernetes la vuelve a levantar sola</b> en segundos, sin que nadie haga nada.</p></div>
+  </div>
+  <p style="font-size:9.5pt;color:var(--suave)">Los experimentos solo puede usarlos el operador (admin).</p>
+</section>
+
+<!-- ================= 9. TOPOLOGÍA ================= -->
+<section class="salto">
+  <div class="capitulo c-morado"><span class="num">9</span><div><h2>Topología: el mapa</h2><p>Por dónde viaja la información, dibujado como un mapa de metro.</p></div><span class="ico emo">🗺️</span></div>
+  <p>Arriba a la derecha hay dos pestañas: <b>Aplicación</b> (el camino del tráfico) y <b>Agentes y gestión</b> (cómo se organizan los robots). Toca cualquier pieza del mapa para ver qué es.</p>
+  <h3>Vista "Aplicación" + botón Probar flujos</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Topología · Aplicación</span></div><div class="lienzo"><img src="img/05-topologia-resultado.jpg">
+    <span class="marca" style="left:64%;top:14%">1</span><span class="marca" style="left:87%;top:9%">2</span><span class="marca" style="left:21%;top:24%">3</span><span class="marca" style="left:24%;top:56%">4</span><span class="marca" style="left:32%;top:49%">5</span><span class="marca" style="left:60%;top:47%">6</span><span class="marca" style="left:47%;top:83%">7</span><span class="marca" style="left:21%;top:98.5%">8</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Pestañas</b> para cambiar de vista.</span></li>
+    <li><span class="n">2</span><span><b>Probar flujos:</b> envía mensajes de prueba por cada camino y los anima en el mapa.</span></li>
+    <li><span class="n">3</span><span><b>Resultado:</b> cuántos caminos se probaron y cuántos cumplen. Rojo = "fuera de política" (pasa algo que no debería).</span></li>
+    <li><span class="n">4</span><span><b>Internet</b> (la calle) y <b>Red del lab</b>.</span></li>
+    <li><span class="n">5</span><span><b>Firewall:</b> las puertas 80 y 443 llevan a la página; la <b style="color:#ef476f">8081</b> está abierta "de sobra" (peligro); la 22 es la de mantenimiento.</span></li>
+    <li><span class="n">6</span><span><b>Kubernetes:</b> Web → API → Datos, que es el camino correcto.</span></li>
+    <li><span class="n">7</span><span><b>"Se salta el firewall":</b> la base de datos se puede alcanzar por el puerto 30082 sin pasar por el portero. ¡Un riesgo!</span></li>
+    <li><span class="n">8</span><span><b>Leyenda de líneas:</b> verde = permitido y funciona, gris punteado = bloqueado como debe, rojo punteado = riesgo.</span></li>
+  </ol>
+</section>
+
+<section class="salto">
+  <div class="dos">
+    <div><h4>Mientras prueba…</h4><div class="captura"><div class="lienzo"><img src="img/05-topologia-probando.jpg"></div></div><p class="pie-foto">Los puntos viajan por las líneas mientras se prueba cada camino.</p></div>
+    <div><h4>Antes de probar</h4><div class="captura"><div class="lienzo"><img src="img/05-topologia.jpg"></div></div><p class="pie-foto">El mapa tranquilo, con la última prueba guardada.</p></div>
+  </div>
+  <h3>Vista "Agentes y gestión"</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Topología · Agentes y gestión</span></div><div class="lienzo"><img src="img/05-topologia-agentes.jpg">
+    <span class="marca" style="left:27.5%;top:35%">1</span><span class="marca" style="left:38%;top:39%">2</span><span class="marca" style="left:50%;top:37%">3</span><span class="marca" style="left:60%;top:28%">4</span><span class="marca" style="left:60%;top:78%">5</span><span class="marca" style="left:93%;top:32%">6</span><span class="marca" style="left:39%;top:77%">7</span></div></div>
+  <ol class="leyenda dos-col">
+    <li><span class="n">1</span><span><b>Operador:</b> tú.</span></li>
+    <li><span class="n">2</span><span><b>Panel:</b> lo que estás viendo en pantalla.</span></li>
+    <li><span class="n">3</span><span><b>Backend (coordinador):</b> el que crea a los agentes ("crea un Job").</span></li>
+    <li><span class="n">4</span><span><b>Los 4 agentes</b> dentro de Kubernetes. Se ponen naranjas cuando trabajan.</span></li>
+    <li><span class="n">5</span><span><b>IA local:</b> la usan los 4 para razonar.</span></li>
+    <li><span class="n">6</span><span><b>Firewall y App auditada,</b> con candado: acceso restringido.</span></li>
+    <li><span class="n">7</span><span><b>Base de datos y Proxy de Docker:</b> guardan el historial y miran sin cambiar.</span></li>
+  </ol>
+</section>
+
+<!-- ================= 10. CONECTIVIDAD ================= -->
+<section class="salto">
+  <div class="capitulo c-azul"><span class="num">10</span><div><h2>Conectividad</h2><p>"¿Pasa lo que debe pasar y se bloquea lo que debe bloquearse?"</p></div><span class="ico emo">📶</span></div>
+  <p>Aquí PHANTOM hace <b>pruebas reales</b>: toca cada puerta del firewall y prueba si cada aplicación puede hablar con las otras. Es como revisar que cada llave abra solo la puerta que le toca.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Conectividad</span></div><div class="lienzo"><img src="img/06-conectividad.jpg">
+    <span class="marca" style="left:84%;top:21%">1</span><span class="marca" style="left:21%;top:26%">2</span><span class="marca" style="left:21%;top:40%">3</span><span class="marca" style="left:21%;top:50.5%">4</span><span class="marca" style="left:21%;top:75.5%">5</span><span class="marca" style="left:63%;top:47%">6</span><span class="marca" style="left:63%;top:73.5%">7</span><span class="marca" style="left:21%;top:91%">8</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Ejecutar pruebas:</b> vuelve a probar todo ahora mismo.</span></li>
+    <li><span class="n">2</span><span><b>Resumen:</b> aquí 5 de 7 caminos están bien y 2 están mal.</span></li>
+    <li><span class="n">3</span><span><b>Perímetro (firewall FreeBSD):</b> el camino Internet → PF (portero) → clúster.</span></li>
+    <li><span class="n">4</span><span><b>Cada puerta:</b> 22 (mantenimiento, protegida), 80 y 443 (la página, deben responder).</span></li>
+    <li><span class="n">5</span><span><b>Puerta 8081 en rojo:</b> responde, pero <b>no debería</b>. Es un servicio de sobra expuesto.</span></li>
+    <li><span class="n">6</span><span><b>Tabla "quién habla con quién":</b> Web→API debe pasar <span class="emo">✅</span>; Web→Base de datos <b>debería bloquearse</b> y responde <span class="emo">❌</span>.</span></li>
+    <li><span class="n">7</span><span><b>allow-all:</b> la regla actual deja pasar todo el tráfico interno. Por eso Web llega a los datos.</span></li>
+    <li><span class="n">8</span><span><b>Cada flujo probado</b> en una lista, y el <b>Historial</b> de pruebas anteriores.</span></li>
+  </ol>
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">¿CÓMO LEER UNA CASILLA?</b>Cada casilla dice dos cosas: lo que <b>pasó</b> (responde / no responde) y lo que <b>debería</b> pasar (debe pasar / debe bloquearse). Si coinciden, sale <b style="color:#0f9e79">verde</b>. Si no coinciden, sale <b style="color:#ef476f">rojo</b>.</div></div>
+</section>
+
+<!-- ================= 11. AUDITORÍA / SALA ================= -->
+<section class="salto">
+  <div class="capitulo c-naranja"><span class="num">11</span><div><h2>Auditoría y Sala de agentes</h2><p>Mira a los robots trabajar en vivo, como en un chat.</p></div><span class="ico emo">🕵️</span></div>
+  <h3><span class="paso">1</span>Presiona "Iniciar auditoría"</h3>
+  <p>Está en el menú de la izquierda (y también arriba a la derecha en el Panel). Al presionarlo, PHANTOM te lleva solo a la <b>Sala de agentes</b>.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Sala de agentes · inicio</span></div><div class="lienzo"><img src="img/11-sala-inicio.jpg">
+    <span class="marca" style="left:22%;top:22%">1</span><span class="marca" style="left:56%;top:22%">2</span><span class="marca" style="left:22.5%;top:48%">3</span><span class="marca" style="left:34%;top:42%">4</span><span class="marca" style="left:44%;top:66%">5</span><span class="marca" style="left:22.5%;top:84%">6</span><span class="marca" style="left:74%;top:32%">7</span><span class="marca" style="left:63%;top:47%">8</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span><b>Etapas:</b> 1 Recolectar → 2 Analizar y auditar → 3 Proponer → 4 Listo. La que está iluminada es la actual.</span></li>
+    <li><span class="n">2</span><span><b>Cronómetro:</b> cuánto tiempo lleva la auditoría.</span></li>
+    <li><span class="n">3</span><span><b>Coordinador:</b> el que reparte el trabajo.</span></li>
+    <li><span class="n">4</span><span><b>El agente que trabaja</b> brilla y dice "pod trabajando". Los demás dicen "pod dormido".</span></li>
+    <li><span class="n">5</span><span><b>IA local:</b> cuando un agente le pregunta algo, dice "pensando…".</span></li>
+    <li><span class="n">6</span><span><b>"Ahora":</b> una frase sencilla de lo que está pasando en este momento.</span></li>
+    <li><span class="n">7</span><span><b>Conversación:</b> los mensajes de los agentes, como un chat de WhatsApp, con hora.</span></li>
+    <li><span class="n">8</span><span><b>Tú</b> (a la derecha del mapa): al final, las propuestas llegan a ti para que decidas.</span></li>
+  </ol>
+</section>
+
+<section class="salto">
+  <h3><span class="paso">2</span>Mira cómo trabajan</h3>
+  <p>Los agentes van apareciendo uno por uno. Cada vez que uno "habla", su mensaje sale en la conversación y su dibujo se ilumina en el mapa. Una auditoría completa tarda unos <b>7 u 8 minutos</b>, porque la IA piensa con calma cada respuesta.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Sala de agentes · analizando y auditando</span></div><div class="lienzo"><img src="img/11-sala-t240.jpg">
+    <span class="marca" style="left:33%;top:22%">1</span><span class="marca" style="left:39%;top:46%">2</span><span class="marca" style="left:39%;top:59%">3</span><span class="marca" style="left:54%;top:71%">4</span><span class="marca" style="left:72%;top:46%">5</span><span class="marca" style="left:72%;top:66%">6</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span>Ya pasó la etapa 1 (con <b>✔</b>) y ahora va en <b>Analizar y auditar</b>.</span></li>
+    <li><span class="n">2</span><span>El <b>Analista</b> (el doctor) y…</span></li>
+    <li><span class="n">3</span><span>…el <b>Auditor</b> (el detective) trabajan <b>al mismo tiempo</b>. El número pequeño es cuántos mensajes llevan.</span></li>
+    <li><span class="n">4</span><span>La línea naranja muestra que el auditor está <b>preguntándole a la IA</b>.</span></li>
+    <li><span class="n">5</span><span>Un <b>hallazgo</b>: un problema con su gravedad (aquí "Alta").</span></li>
+    <li><span class="n">6</span><span>Mensaje marcado <b>IA</b>: la explicación que escribió la inteligencia artificial, en palabras.</span></li>
+  </ol>
+  <div style="display:grid;grid-template-columns:1fr 70mm;gap:5mm;align-items:center"><div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">FANTI DICE</b>¿Te aburriste de esperar? Puedes ir a otras pantallas: la auditoría sigue sola. Aparecerá una <b>burbuja flotante</b> abajo a la derecha que te muestra el avance y te trae de vuelta a la Sala con un clic.</div></div><div class="captura" style="margin:0"><div class="lienzo"><img src="img/23-burbuja-recorte.jpg"></div></div></div>
+</section>
+
+<section class="salto">
+  <h3><span class="paso">3</span>Cuando termina</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Sala de agentes · terminada</span></div><div class="lienzo"><img src="img/12-sala-fin.jpg">
+    <span class="marca" style="left:22%;top:16%">1</span><span class="marca" style="left:80%;top:23%">2</span><span class="marca" style="left:30%;top:42%">3</span><span class="marca" style="left:73%;top:45%">4</span><span class="marca" style="left:22%;top:79%">5</span><span class="marca" style="left:72%;top:87%">6</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span>Las <b>4 etapas con ✔</b>: la auditoría terminó. El cronómetro dice cuánto tardó.</span></li><li><span class="n">2</span><span><b>Repetir conversación</b> vuelve a mostrar todo el chat desde el principio (ideal para explicarlo a alguien). <b>Ver informe</b> abre el resultado completo.</span></li><li><span class="n">3</span><span>Todos los agentes dicen <b>"pod terminó"</b>: Kubernetes ya los apagó. Hicieron su trabajo y desaparecieron.</span></li><li><span class="n">4</span><span>El Planificador te dejó <b>propuestas listas para tu decisión</b>. El botón <b>Revisar y decidir</b> te lleva directo a cada una.</span></li><li><span class="n">5</span><span><b>Resumen:</b> la auditoría terminó.</span></li><li><span class="n">6</span><span>El Coordinador cierra: cuántos <b>hallazgos</b> (problemas) y cuántas <b>propuestas</b> hubo. Recuerda: <b>"Ningún cambio se aplica hasta que un operador lo apruebe."</b></span></li></ol>
+</section>
+
+<!-- ================= 12. AUDITORÍAS ================= -->
+<section class="salto">
+  <div class="capitulo c-verde"><span class="num">12</span><div><h2>Auditorías e informes</h2><p>El historial de todas las revisiones y el informe de cada una.</p></div><span class="ico emo">📋</span></div>
+  <h3>Lista de auditorías</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Auditorías</span></div><div class="lienzo"><img src="img/14-auditorias.jpg">
+    <span class="marca" style="left:22%;top:30%">1</span><span class="marca" style="left:31.5%;top:54%">2</span><span class="marca" style="left:51%;top:59%">3</span><span class="marca" style="left:91%;top:54%">4</span><span class="marca" style="left:31.5%;top:86%">5</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span><b>Postura en cada auditoría:</b> la línea de la nota. ¡Si sube, la red está cada vez más segura!</span></li><li><span class="n">2</span><span>La <b>nota</b> de esa auditoría. Aquí pasó de <b>17</b> → <b>24</b> → <b>37</b> a medida que aplicamos arreglos.</span></li><li><span class="n">3</span><span>Cuántos problemas hubo de cada color y cuántas propuestas quedan <b>por decidir</b>.</span></li><li><span class="n">4</span><span><b>Conversación</b> abre la Sala de esa auditoría; <b>Informe</b> abre su resultado.</span></li><li><span class="n">5</span><span>Las auditorías viejas quedan guardadas, de la más nueva a la más antigua.</span></li></ol>
+</section>
+
+<section class="salto">
+  <h3>El informe de una auditoría</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Informe de auditoría</span></div><div class="lienzo"><img src="img/13-informe.jpg">
+    <span class="marca" style="left:18%;top:10%">1</span><span class="marca" style="left:67%;top:9%">2</span><span class="marca" style="left:20%;top:24%">3</span><span class="marca" style="left:19.6%;top:41%">4</span><span class="marca" style="left:19.6%;top:47.5%">5</span><span class="marca" style="left:64.3%;top:41%">6</span><span class="marca" style="left:64.3%;top:71%">7</span></div></div>
+  <ol class="leyenda dos-col"><li><span class="n">1</span><span>Número de la auditoría, fecha y quién la pidió.</span></li><li><span class="n">2</span><span><b>Ver conversación de agentes</b> te lleva a la Sala; <b>Todas las auditorías</b> vuelve a la lista.</span></li><li><span class="n">3</span><span><b>Resumen del agente analista:</b> cómo está todo en una frase (cuántas aplicaciones, reglas del firewall, pruebas correctas).</span></li><li><span class="n">4</span><span><b>Hallazgos:</b> la lista de problemas encontrados, del más grave al menos grave.</span></li><li><span class="n">5</span><span>Cada hallazgo tiene su <b>gravedad</b> (Alta, Crítica…), qué agente lo encontró y una explicación sencilla. Ej.: "Puerto 8081 expuesto sin justificación".</span></li><li><span class="n">6</span><span><b>Propuestas del planificador:</b> los arreglos sugeridos. Clic en una para revisarla.</span></li><li><span class="n">7</span><span><b>Conectividad medida:</b> qué caminos se probaron, si estaban permitidos o prohibidos, y qué pasó.</span></li></ol>
+</section>
+
+<!-- ================= 13. PROPUESTAS ================= -->
+<section class="salto">
+  <div class="capitulo c-morado"><span class="num">13</span><div><h2>Propuestas: aprobar y aplicar</h2><p>Aquí tú eres el jefe. Nada se aplica sin tu permiso.</p></div><span class="ico emo">✅</span></div>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Propuestas</span></div><div class="lienzo"><img src="img/16-propuestas.jpg">
+    <span class="marca" style="left:20%;top:23%">1</span><span class="marca" style="left:20%;top:33.5%">2</span><span class="marca" style="left:55%;top:46%">3</span><span class="marca" style="left:20%;top:60%">4</span><span class="marca" style="left:20%;top:78%">5</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span><b>Contadores:</b> cuántas están <b style="color:#c99400">Pendientes</b>, <b style="color:#0f9e79">Aplicadas</b>, Revertidas y Reemplazadas.</span></li><li><span class="n">2</span><span><b>Requieren tu decisión:</b> las que esperan tu "sí" o "no".</span></li><li><span class="n">3</span><span>Cada tarjeta dice qué arreglo es (ej. <b>Bloqueo PF :8081</b>), qué cambiará y de qué auditoría salió. Presiona <b>Revisar →</b> para abrirla.</span></li><li><span class="n">4</span><span><b>Decididas:</b> las que ya aprobaste y se aplicaron (o rechazaste).</span></li><li><span class="n">5</span><span><b>Historial:</b> propuestas viejas que fueron reemplazadas por una auditoría más reciente.</span></li></ol>
+</section>
+
+<section class="salto">
+  <h3>Abrir una propuesta</h3>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Propuesta</span></div><div class="lienzo"><img src="img/17-propuesta.jpg">
+    <span class="marca" style="left:19%;top:8%">1</span><span class="marca" style="left:81%;top:17%">2</span><span class="marca" style="left:30%;top:26%">3</span><span class="marca" style="left:21%;top:37.5%">4</span><span class="marca" style="left:21%;top:60%">5</span><span class="marca" style="left:60%;top:37.5%">6</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span><b>Qué se va a hacer</b>, en el título. Aquí: "Bloquear el puerto 8081/tcp en el firewall perimetral".</span></li><li><span class="n">2</span><span><b>Estado:</b> Pendiente (todavía nadie decide).</span></li><li><span class="n">3</span><span><b>Los 4 pasos:</b> Propuesta ✔ → <b>Aprobación</b> (estamos aquí) → Aplicación → Verificación.</span></li><li><span class="n">4</span><span><b>Por qué:</b> la razón del arreglo y el <b>impacto esperado</b> (qué cambia para los usuarios).</span></li><li><span class="n">5</span><span><b>Explicación de la IA:</b> el cerebro Mistral lo explica en palabras normales, incluso cómo se comprobará.</span></li><li><span class="n">6</span><span><b>Cambio que se aplicará:</b> la orden exacta, para quien sepa leerla. No necesitas entenderla: para eso está la explicación.</span></li></ol>
+</section>
+
+<section class="salto">
+  <h3>El camino de una propuesta <span class="emo">🛤️</span></h3>
+  <div class="diagrama">
+    <svg viewBox="0 0 760 120">
+      <defs><marker id="fl3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6b69"/></marker></defs>
+      <g font-size="12.5" font-weight="800" text-anchor="middle">
+        <rect x="5" y="25" width="130" height="70" rx="35" fill="#fff6dc" stroke="#e0a800" stroke-width="2.5"/><text x="70" y="55" font-size="20" class="emo">⏳</text><text x="70" y="80">Pendiente</text>
+        <rect x="175" y="25" width="130" height="70" rx="35" fill="#e2edff" stroke="#3a86ff" stroke-width="2.5"/><text x="240" y="55" font-size="20" class="emo">👍</text><text x="240" y="80">Aprobada</text>
+        <rect x="345" y="25" width="130" height="70" rx="35" fill="#dcf8ee" stroke="#16c79a" stroke-width="2.5"/><text x="410" y="55" font-size="20" class="emo">✅</text><text x="410" y="80">Aplicada</text>
+        <rect x="515" y="25" width="110" height="70" rx="35" fill="#efe5fd" stroke="#8338ec" stroke-width="2.5"/><text x="570" y="55" font-size="20" class="emo">↩️</text><text x="570" y="80">Revertida</text>
+        <rect x="645" y="25" width="110" height="70" rx="35" fill="#fde3ea" stroke="#ef476f" stroke-width="2.5"/><text x="700" y="55" font-size="20" class="emo">✋</text><text x="700" y="80">Rechazada</text>
+      </g>
+      <g stroke="#5b6b69" stroke-width="3"><line x1="137" y1="60" x2="171" y2="60" marker-end="url(#fl3)"/><line x1="307" y1="60" x2="341" y2="60" marker-end="url(#fl3)"/><line x1="477" y1="60" x2="511" y2="60" marker-end="url(#fl3)"/></g>
+      <g font-size="10.5" fill="#5b6b69" text-anchor="middle"><text x="154" y="18">Aprobar</text><text x="324" y="18">Ejecutar</text><text x="494" y="18">Revertir</text><text x="700" y="112">si dices "no"</text></g>
+    </svg>
+  </div>
+
+  <h3><span class="paso">1</span>Aprobar</h3>
+  <p>Si estás de acuerdo con el arreglo, presiona <b>Aprobar</b>. Si no, presiona <b>Rechazar</b> y no pasa nada.</p>
+  <div class="captura"><div class="lienzo"><img src="img/18-propuesta-aprobada.jpg"><span class="marca" style="left:27%;top:88.5%">1</span><span class="marca" style="left:92%;top:94.5%">2</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span>Después de aprobar aparece el botón grande <b>Ejecutar cambio</b>. Todavía no se ha cambiado nada.</span></li><li><span class="n">2</span><span>Mensajito de confirmación: <b>"Propuesta aprobada"</b>.</span></li></ol>
+</section>
+
+<section class="salto">
+  <h3><span class="paso">2</span>Ejecutar el cambio</h3>
+  <p>Presiona <b>Ejecutar cambio</b>. El sistema pregunta "¿Continuar?" para que no lo hagas por accidente. Acepta. Verás "Aplicando y verificando…" unos segundos.</p>
+  <div class="captura"><div class="lienzo"><img src="img/20-pasos.jpg"></div></div>
+  <p class="pie-foto">¡Los 4 pasos en verde! Propuesta → Aprobación → Aplicación → Verificación. Arriba a la derecha dice <b>Aplicada</b>.</p>
+  <div style="display:grid;grid-template-columns:72mm 1fr;gap:6mm;align-items:start">
+    <div class="captura" style="margin:0"><div class="lienzo"><img src="img/20-antes-despues.jpg"><span class="marca" style="left:90%;top:4%">1</span><span class="marca" style="left:94%;top:23%">2</span><span class="marca" style="left:94%;top:43%">3</span></div></div>
+    <div><ol class="leyenda "><li><span class="n">1</span><span><b>Antes y después:</b> PHANTOM probó cada camino antes y después del cambio.</span></li><li><span class="n">2</span><span>La página (puertas 80 y 443) <b>siguió funcionando</b>: ✔ antes y ✔ después. ¡No se rompió nada!</span></li><li><span class="n">3</span><span>La puerta 8081: <b style="color:#ef476f">antes se podía entrar</b>, <b style="color:#0f9e79">ahora está bloqueada</b>. ¡Arreglado!</span></li></ol>
+      <div class="nota bien"><b class="t">Detalle técnico (abajo)</b>Muestra cada paso que hizo el controlador: <b>Validación OK</b> → <b>Respaldo guardado</b> → <b>Aplicación: puerto 8081 bloqueado</b> → <b>Verificación: todas las pruebas con el resultado esperado</b>.</div>
+    </div>
+  </div>
+  <h3><span class="paso">3</span>¿Me arrepentí? Revertir</h3>
+  <p>Si el cambio ya está aplicado y quieres volver a como estaba, presiona <b>Revertir cambio</b>. PHANTOM usa la copia que guardó antes y deja todo igual que al principio.</p>
+</section>
+
+<section class="salto">
+  <h3>Antes y después <span class="emo">🔍</span></h3>
+  <p>Después del arreglo, vuelve a <b>Conectividad</b> y presiona <b>Ejecutar pruebas</b>. Así compruebas con tus propios ojos que el problema desapareció.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Conectividad después del arreglo</span></div><div class="lienzo"><img src="img/21-conectividad-despues.jpg"><span class="marca" style="left:22%;top:26%">1</span><span class="marca" style="left:21%;top:75.5%">2</span><span class="marca" style="left:92%;top:47%">3</span></div></div>
+  <ol class="leyenda "><li><span class="n">1</span><span>Antes había <b>2</b> caminos mal; ahora solo <b>1</b> (6 de 7 correctos).</span></li><li><span class="n">2</span><span>La puerta <b>8081</b> ahora dice <b style="color:#0f9e79">bloqueado</b> y "Bloqueado por PHANTOM".</span></li><li><span class="n">3</span><span>Queda en rojo Web → Base de datos. Ese se arregla aprobando la otra propuesta (la <b>segmentación</b>). ¡Te toca a ti decidir!</span></li></ol>
+  <div class="captura" style="margin-top:3mm"><div class="barra"><i></i><i></i><i></i><span>Panel general después</span></div><div class="lienzo"><img src="img/15-panel-despues.jpg"><span class="marca" style="left:25%;top:31%">1</span></div></div>
+  <p class="pie-foto"><b>(1)</b> La nota de seguridad subió de <b>17</b> a <b>37</b> después de los arreglos. ¡La red ya está más segura!</p>
+</section>
+
+<!-- ================= 14. REGISTRO ================= -->
+<section class="salto">
+  <div class="capitulo c-osc"><span class="num">14</span><div><h2>Registro</h2><p>La memoria de PHANTOM: todo lo que pasó queda guardado.</p></div><span class="ico emo">🗄️</span></div>
+  <h3>Pestaña "Base de datos"</h3>
+  <p>Es un dibujo de cómo se guarda la información. Cada caja es una "tabla" (como una hoja de Excel) y las líneas muestran qué se relaciona con qué. Toca una tabla para ver lo que tiene dentro.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Registro · Base de datos</span></div><div class="lienzo"><img src="img/07-registro.jpg">
+    <span class="marca" style="left:85%;top:9%">1</span><span class="marca" style="left:51%;top:47%">2</span><span class="marca" style="left:21%;top:29%">3</span><span class="marca" style="left:21%;top:58%">4</span><span class="marca" style="left:60%;top:29%">5</span><span class="marca" style="left:60%;top:54%">6</span><span class="marca" style="left:80%;top:60%">7</span></div></div>
+  <ol class="leyenda dos-col">
+    <li><span class="n">1</span><span><b>Pestañas:</b> Base de datos y Línea de tiempo.</span></li>
+    <li><span class="n">2</span><span><b>Auditorías:</b> el centro. Todo cuelga de aquí.</span></li>
+    <li><span class="n">3</span><span><b>Mensajes de agentes:</b> la conversación de la Sala.</span></li>
+    <li><span class="n">4</span><span><b>Agentes (pods):</b> cada robot que nació, sus intentos y su resultado.</span></li>
+    <li><span class="n">5</span><span><b>Hallazgos:</b> los problemas encontrados.</span></li>
+    <li><span class="n">6</span><span><b>Propuestas:</b> los arreglos sugeridos.</span></li>
+    <li><span class="n">7</span><span><b>Ejecuciones:</b> cada arreglo aplicado, con su copia de respaldo y sus pruebas antes y después.</span></li>
+  </ol>
+</section>
+
+<section class="salto">
+  <h3>Pestaña "Línea de tiempo"</h3>
+  <p>Una lista ordenada por hora de todo lo que pasó: quién inició sesión, qué auditoría se hizo, qué se aprobó y qué se aplicó. Sirve para saber <b>quién hizo qué y cuándo</b>.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Registro · Línea de tiempo</span></div><div class="lienzo"><img src="img/07-registro-linea.jpg"></div></div>
+</section>
+
+<!-- ================= 15. SIMULAR ================= -->
+<section class="salto">
+  <div class="capitulo c-rojo"><span class="num">15</span><div><h2>Simular la caída de un agente</h2><p>¿Qué pasa si un robot se "desmaya" a mitad del trabajo?</p></div><span class="ico emo">💥</span></div>
+  <div style="display:grid;grid-template-columns:62mm 1fr;gap:6mm;align-items:start">
+    <div class="captura" style="margin:0"><div class="lienzo"><img src="img/10-simular.jpg"></div></div>
+    <div>
+      <p>Debajo de <b>Iniciar auditoría</b> está el enlace <b>Simular la caída de un agente</b>. Al abrirlo aparecen 4 botones, uno por cada robot.</p>
+      <ol class="receta">
+        <li>Haz clic en "Simular la caída de un agente". <span class="emo">👆</span></li>
+        <li>Elige un agente, por ejemplo <b>Auditor</b>. <span class="emo">🕵️</span></li>
+        <li>Empieza una auditoría normal, pero ese robot falla a propósito la primera vez. <span class="emo">💥</span></li>
+        <li><b>Kubernetes lo nota y lo vuelve a crear solo.</b> <span class="emo">🔁</span></li>
+        <li>La auditoría termina bien, como si nada. <span class="emo">🎉</span></li>
+      </ol>
+    </div>
+  </div>
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">¿PARA QUÉ SIRVE?</b>Para demostrar que el sistema <b>no se rompe</b> si una pieza falla. Es una de las grandes ventajas de Kubernetes: reintenta solo. En la Sala verás el "intento 2" del agente que se cayó. Solo el operador (admin) ve estos botones.</div></div>
+</section>
+
+<!-- ================= 16. OBSERVADOR ================= -->
+<section class="salto">
+  <div class="capitulo c-azul"><span class="num">16</span><div><h2>Modo observador</h2><p>Para quien solo necesita mirar, sin tocar nada.</p></div><span class="ico emo">👀</span></div>
+  <p>Si entras con el usuario <code>observador</code>, ves <b>exactamente las mismas pantallas</b>, pero los botones de aprobar, ejecutar, revertir, los experimentos y la simulación de caídas quedan apagados.</p>
+  <div class="captura"><div class="barra"><i></i><i></i><i></i><span>Propuesta vista por el observador</span></div><div class="lienzo"><img src="img/22-observador-propuesta.jpg">
+    <span class="marca" style="left:19%;top:25%">1</span><span class="marca" style="left:51%;top:31%">2</span><span class="marca" style="left:51%;top:36%">3</span><span class="marca" style="left:2%;top:90%">4</span></div></div>
+  <ol class="leyenda">
+    <li><span class="n">1</span><span>El título de la propuesta y la auditoría que la creó.</span></li>
+    <li><span class="n">2</span><span>Aviso azul: <b>"Tienes rol de observador: puedes revisar la propuesta, pero no aprobarla ni ejecutarla."</b></span></li>
+    <li><span class="n">3</span><span>Los <b>4 pasos</b> de toda propuesta: Propuesta → Aprobación → Aplicación → Verificación. El paso actual se pinta de naranja.</span></li>
+    <li><span class="n">4</span><span>Abajo a la izquierda dice <b>observador · solo consulta</b>, y no aparece "Simular la caída de un agente".</span></li>
+  </ol>
+  <div class="tarjetas">
+    <div class="tarjeta t-verde"><div class="cara emo">👑</div><h4>admin (operador)</h4><p>Mira <span class="emo">✅</span> · Inicia auditorías <span class="emo">✅</span> · Aprueba y ejecuta <span class="emo">✅</span> · Revierte <span class="emo">✅</span> · Experimentos <span class="emo">✅</span></p></div>
+    <div class="tarjeta t-azul"><div class="cara emo">👀</div><h4>observador</h4><p>Mira <span class="emo">✅</span> · Aprueba y ejecuta <span class="emo">❌</span> · Revierte <span class="emo">❌</span> · Experimentos <span class="emo">❌</span> · Simular caídas <span class="emo">❌</span></p></div>
+  </div>
+</section>
+
+<!-- ================= 17. PRIMERA VEZ ================= -->
+<section class="salto">
+  <div class="capitulo c-verde"><span class="num">17</span><div><h2>Tu primera vez en 8 pasos</h2><p>La receta completa, de principio a fin.</p></div><span class="ico emo">🚀</span></div>
+  <ol class="receta">
+    <li>Enciende el sistema con <code>make up</code> y abre <b>http://localhost:8088</b>. <span class="emo">🔌</span></li>
+    <li>Presiona <b>Abrir la consola</b> y entra con <b>admin</b> / <b>phantom-admin</b>. <span class="emo">🔑</span></li>
+    <li>Mira el <b>Panel general</b>: anota la nota de seguridad (por ejemplo, 17 de 100). <span class="emo">📊</span></li>
+    <li>Ve a <b>Conectividad</b> y presiona <b>Ejecutar pruebas</b> para ver qué está en rojo. <span class="emo">📶</span></li>
+    <li>Presiona <b>Iniciar auditoría</b> y mira a los agentes en la <b>Sala</b> (unos 7-8 minutos). <span class="emo">🕵️</span></li>
+    <li>Ve a <b>Propuestas</b>, abre una y lee el "Por qué" y el "Cambio que se aplicará". <span class="emo">📄</span></li>
+    <li>Presiona <b>Aprobar</b> y luego <b>Ejecutar cambio</b>. Espera el mensaje "aplicado y verificado". <span class="emo">✅</span></li>
+    <li>Vuelve a <b>Conectividad</b> y al <b>Panel</b>: lo rojo pasó a verde y la nota sube. <span class="emo">🎉</span></li>
+  </ol>
+  <div class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto"><b class="quien">PARA REPETIR LA DEMO</b>Si quieres volver a dejar la red "con problemas" para mostrarlo otra vez, el encargado técnico escribe en la terminal: <code>make demo-reset pf-reset</code></div></div>
+</section>
+
+<!-- ================= 18. COLORES ================= -->
+<section class="salto">
+  <div class="capitulo c-naranja"><span class="num">18</span><div><h2>Colores y símbolos</h2><p>El "idioma de colores" de PHANTOM.</p></div><span class="ico emo">🚦</span></div>
+  <table>
+    <tr><th>Lo que ves</th><th>Qué significa</th></tr>
+    <tr><td><span class="semaforo" style="background:#16c79a"></span><b>Verde</b></td><td>Todo bien. Funciona o se comporta como debe.</td></tr>
+    <tr><td><span class="semaforo" style="background:#ef476f"></span><b>Rojo</b></td><td>Problema o riesgo. Algo pasa cuando no debería, o no responde.</td></tr>
+    <tr><td><span class="semaforo" style="background:#ff9f1c"></span><b>Naranja / Ámbar</b></td><td>Atención: algo espera tu decisión, o un agente está trabajando ahora.</td></tr>
+    <tr><td><span class="semaforo" style="background:#9aa5a3"></span><b>Gris punteado</b></td><td>Bloqueado a propósito (está bien) o agente dormido.</td></tr>
+    <tr><td><span style="background:#fde3ea;color:#d62f59;border:1px solid #ef476f;padding:0 2mm;border-radius:2mm;font-weight:800">Crítica</span></td><td>El problema más grave. Arreglar primero.</td></tr>
+    <tr><td><span style="background:#fff1dc;color:#c25e00;border:1px solid #ff9f1c;padding:0 2mm;border-radius:2mm;font-weight:800">Alta</span></td><td>Grave. Arreglar pronto.</td></tr>
+    <tr><td><span style="background:#fff6dc;color:#9a7300;border:1px solid #e0a800;padding:0 2mm;border-radius:2mm;font-weight:800">Media</span></td><td>Importante, pero puede esperar un poco.</td></tr>
+    <tr><td><span style="background:#e2edff;color:#2563eb;border:1px solid #3a86ff;padding:0 2mm;border-radius:2mm;font-weight:800">Baja</span></td><td>Detalle menor.</td></tr>
+    <tr><td><span class="emo">✅</span> <b>responde / debe pasar</b></td><td>La conexión funciona y está permitida.</td></tr>
+    <tr><td><span class="emo">❌</span> <b>responde / debe bloquearse</b></td><td>La conexión funciona pero NO debería. Es un riesgo.</td></tr>
+    <tr><td><span style="background:#e9fff6;border:1px solid #16c79a;padding:0 2mm;border-radius:2mm;font-weight:800;color:#0f9e79">IA</span></td><td>Esta parte la escribió o explicó la inteligencia artificial.</td></tr>
+    <tr><td><span class="emo">🔒</span> <b>Candado</b></td><td>Acceso restringido: solo se puede leer o solo hacer cambios permitidos.</td></tr>
+  </table>
+</section>
+
+<!-- ================= 19. AYUDA ================= -->
+<section class="salto">
+  <div class="capitulo c-rojo"><span class="num">19</span><div><h2>¿Algo salió mal?</h2><p>Los problemas más comunes y qué hacer.</p></div><span class="ico emo">🆘</span></div>
+  <div class="faq"><h4><span class="emo">🚫</span> La página no abre (localhost:8088 no carga)</h4><p>El sistema está apagado. Pídele al encargado técnico que escriba <code>make up</code> y espera a que todas las líneas salgan con <b>✔</b>.</p></div>
+  <div class="faq"><h4><span class="emo">🔑</span> "Usuario o contraseña incorrectos"</h4><p>Revisa que escribiste todo en minúsculas: <code>admin</code> y <code>phantom-admin</code>.</p></div>
+  <div class="faq"><h4><span class="emo">🔴</span> Una luz de arriba está roja</h4><p>Esa pieza no responde. Si es <b>Firewall</b>, la máquina virtual de FreeBSD puede estar apagada. Si es <b>IA local</b>, el cerebro está arrancando: espera un minuto. Con <code>make up</code> se revisa y repara todo.</p></div>
+  <div class="faq"><h4><span class="emo">🐢</span> La auditoría tarda mucho</h4><p>Es normal: unos 7-8 minutos, porque la IA corre en el mismo computador, sin tarjeta gráfica. Puedes seguir usando otras pantallas mientras tanto.</p></div>
+  <div class="faq"><h4><span class="emo">🔘</span> Los botones de Aprobar o Ejecutar están apagados</h4><p>Entraste como <b>observador</b>. Cierra sesión y entra como <b>admin</b>.</p></div>
+  <div class="faq"><h4><span class="emo">↩️</span> Dice "La verificación falló: el cambio se revirtió"</h4><p>¡Tranquilo! El arreglo rompía algo, así que PHANTOM lo deshizo solo. Tu red quedó como estaba. Inicia otra auditoría para obtener una propuesta nueva.</p></div>
+  <div class="faq"><h4><span class="emo">📭</span> "Sin propuestas" o "Todo al día"</h4><p>No hay nada pendiente. Si quieres nuevas propuestas, inicia otra auditoría.</p></div>
+  <div class="faq"><h4><span class="emo">🗂️</span> Una propuesta dice "Reemplazada"</h4><p>Una auditoría más nueva generó una propuesta actualizada para el mismo problema. Usa siempre la más reciente.</p></div>
+</section>
+
+<!-- ================= 20. GLOSARIO ================= -->
+<section class="salto">
+  <div class="capitulo c-morado"><span class="num">20</span><div><h2>Palabras raras</h2><p>El glosario más sencillo del mundo.</p></div><span class="ico emo">📚</span></div>
+  <div class="glosario">
+    <div><b>Red</b>Computadores conectados que se envían información.</div>
+    <div><b>Firewall</b>El "portero" de la red: decide qué entra y qué no.</div>
+    <div><b>FreeBSD / PF</b>FreeBSD es el sistema donde vive el portero; PF es el programa que hace de portero.</div>
+    <div><b>Puerto</b>Una "puerta" numerada de un computador. La 80 y la 443 son para páginas web.</div>
+    <div><b>Kubernetes</b>Programa que organiza y cuida aplicaciones; si una se cae, la levanta.</div>
+    <div><b>Pod</b>Una cajita dentro de Kubernetes donde vive una aplicación o un agente.</div>
+    <div><b>Nodo</b>Un computador (real o virtual) que forma parte de Kubernetes.</div>
+    <div><b>Docker / contenedor</b>Una caja que lleva un programa con todo lo que necesita para funcionar.</div>
+    <div><b>Agente de IA</b>Un programa con un trabajo concreto que usa inteligencia artificial para explicar.</div>
+    <div><b>IA local / Mistral</b>La inteligencia artificial que vive dentro del sistema, sin Internet.</div>
+    <div><b>Auditoría</b>Una revisión completa de la red hecha por los agentes.</div>
+    <div><b>Hallazgo</b>Un problema que encontraron los agentes.</div>
+    <div><b>Propuesta</b>Un arreglo sugerido para corregir uno o más hallazgos.</div>
+    <div><b>Revertir</b>Deshacer un cambio y volver a como estaba antes.</div>
+    <div><b>Segmentación</b>Poner "paredes" para que cada aplicación solo hable con quien debe.</div>
+    <div><b>NodePort</b>Una forma de dejar una aplicación visible desde fuera de Kubernetes.</div>
+    <div><b>Operador</b>La persona que puede aprobar y aplicar cambios.</div>
+    <div><b>Postura de seguridad</b>La nota de 0 a 100 que dice qué tan segura está la red.</div>
+  </div>
+</section>
+
+<!-- ================= 21. CÓDIGO Y VIDEO ================= -->
+<section class="salto final">
+  <div class="capitulo c-osc" style="text-align:left"><span class="num">21</span><div><h2>Video y código del proyecto</h2><p>Todo PHANTOM AI en un solo lugar: GitHub.</p></div><span class="ico emo">🎬</span></div>
+  <p style="font-size:12.5pt;margin-top:5mm">Escanea el código con la cámara de tu celular o entra al enlace:</p>
+  <div class="qr"><img src="img/qr.svg" alt="QR del repositorio"></div>
+  <a class="enlace" href="https://github.com/SergiusYT/Phantom-IA">github.com/SergiusYT/Phantom-IA</a>
+  <div class="tarjetas" style="margin-top:7mm;text-align:left">
+    <div class="tarjeta t-naranja"><div class="cara emo">🎬</div><span class="es">Video</span><h4>Vista rápida del sistema</h4><p>Un video corto que muestra PHANTOM AI funcionando: cómo se entra, cómo trabajan los agentes en la Sala, cómo se aprueba un arreglo y cómo la red queda más segura. <b>Ideal si quieres verlo antes de usarlo.</b></p></div>
+    <div class="tarjeta t-verde"><div class="cara emo">💻</div><span class="es">Proyecto completo</span><h4>Todo el código</h4><p>El panel, el backend, los 4 agentes, la configuración de Kubernetes y la del firewall FreeBSD, con las instrucciones para instalarlo y encenderlo.</p></div>
+  </div>
+  <div style="margin:8mm auto 0;max-width:150mm" class="fanti-dice"><svg><use href="#fanti"/></svg><div class="texto" style="text-align:left"><b class="quien">¡LISTO!</b>Ya sabes todo lo necesario para usar PHANTOM AI. ¿Quieres verlo en acción? <b>Mira el video en GitHub.</b> Recuerda: <b>los robots revisan, la IA explica y tú decides</b>. <span class="emo">👻💚</span></div></div>
+</section>
+
+</body>
+</html>
