@@ -16,18 +16,16 @@
 
 ---
 
-## Video: vista rápida (34 s)
+## Video:
 
-<p align="center">
-  <a href="docs/video/PHANTOM_AI_video.mp4">
-    <img src="docs/assets/video-poster.jpg" alt="Ver el video de PHANTOM AI" width="80%">
-  </a>
-</p>
 
-<p align="center">
-  <img src="docs/assets/teaser.gif" alt="Avance del video" width="80%"><br>
-  <sub>Haz clic en la imagen de arriba para ver el video completo con sonido (<code>docs/video/PHANTOM_AI_video.mp4</code>).</sub>
-</p>
+
+https://github.com/user-attachments/assets/31fe8ad6-d97c-4719-b385-e39f37c612fa
+
+
+
+
+
 
 ## Manual de usuario
 
