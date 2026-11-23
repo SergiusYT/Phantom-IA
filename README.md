@@ -19,7 +19,7 @@
 ## Video: vista rápida (34 s)
 
 <p align="center">
-  <a href="https://github.com/SergiusYT/Phantom-IA/raw/main/docs/video/PHANTOM_AI_video.mp4">
+  <a href="docs/video/PHANTOM_AI_video.mp4">
     <img src="docs/assets/video-poster.jpg" alt="Ver el video de PHANTOM AI" width="80%">
   </a>
 </p>
